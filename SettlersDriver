@@ -1,0 +1,1393 @@
+import java.awt.*;
+import javax.swing.*;
+import java.util.*;
+
+
+//*************************************************Li15M SETTLERS OF CATAN FINAL PROJECT (DRIVER CLASS)*******************************************************
+
+//This file handles player turns, and drives the game forward
+
+public class SettlersDriver extends SettlersTrading implements Runnable{
+  private boolean dicerolled=false;
+  private Player longestroad;
+  private Player largestarmy;
+  
+  public void run(){
+    //starts the casting in gameboard
+    running();
+    //makes devcard deck and shuffle it
+    shuffledeck();
+    
+    
+    
+    
+    
+    
+//TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE
+    /*
+     Player ego =new Player("ego",Color.RED);
+     int[] roadone = {7,12};
+     int[] roadtwo= {7,3};
+     int[] roadthree = {17,23};
+     int[] roadfour = {0,4};
+     int[] roadfive = {4,8};
+     int[] roadsix = {0,3};
+     int[] roadseven = {8,12};
+     int[] roadeight = {8,13};
+     int[] roadnine = {13,9};
+     int[] roadten = {9,5};
+     int[] roadeleven = {5,1};
+     int[] roadtwelve = {1,4};
+     
+     
+     
+     
+     
+     
+     ego.addplayerRoad(roadone);
+     ego.addplayerRoad(roadtwo);
+     ego.addplayerRoad(roadthree);
+     ego.addplayerRoad(roadfour);
+     ego.addplayerRoad(roadfive);
+     ego.addplayerRoad(roadsix);
+     ego.addplayerRoad(roadseven);
+     ego.addplayerRoad(roadeight);
+     ego.addplayerRoad(roadnine);
+     ego.addplayerRoad(roadten);
+     ego.addplayerRoad(roadeleven);
+     ego.addplayerRoad(roadtwelve);
+     
+     
+     
+     
+     
+     int x =ego.getlongestroad();
+     System.out.println(""+x);
+     **/
+    // getturnorder().add(ego);
+    //e displayturnoptions(ego);
+    
+    //TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE
+    
+    
+    
+    
+    
+    
+    
+    
+    
+//starts the game, with the first person of the turn order go first
+    displayturnoptions(getturnorder().get(0));
+  }
+  public static void main(String[] args){
+    
+    javax.swing.SwingUtilities.invokeLater(new SettlersDriver());
+  }
+  
+  //**********************************************************************************************************************************************
+  //this section is the interface for player's turn and player's options
+  
+  
+  /*displayturnoptions(Player currentplayer) pulls up an interface and currentplayer decides
+   * what to do
+   * 
+   * @param Player currentplayer the player who's turn it is
+   * 
+   * **/
+  
+  public void displayturnoptions(Player currentplayer){
+    //sets devcardalreadyplayed to false, so player can replay a dev card
+    currentplayer.setdevcardplayed(false);
+    //options for JOptionPane
+    Object[] options= {"Roll Dice","Resources","Building","Trading","End Turn","Statistics"};
+    //creates a JOptionPane to decide what to do
+    int selectedValue=JOptionPane.showOptionDialog(this, "Select a move", currentplayer.getName()+"'s turn", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, 0);
+    
+    //in case player closes the all-important JOptionPane for turn options
+    if(selectedValue == -1){
+      JOptionPane.showMessageDialog(this, "Settlers will automatically end your turn.","" , JOptionPane.INFORMATION_MESSAGE);
+      endturn(currentplayer);
+    }
+    
+    
+    
+    //if dice roll is chosen
+    if(selectedValue == 0){
+      if (dicerolled){
+        //if dice has already been rolled this turn
+        JOptionPane.showMessageDialog(this, "Dice has already been rolled on your turn","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+        displayturnoptions(currentplayer);
+      }
+      else{
+        //allows for rolling of dice, and sets dice roll to true
+        dicerolling(currentplayer);
+        dicerolled=true;
+        displayturnoptions(currentplayer);
+        
+      }
+    }
+    
+    
+    if (selectedValue != 0 && dicerolled==false){
+      //makes sure the dice is rolled first before the player moves on
+      JOptionPane.showMessageDialog(this, "You must roll the dice first","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      displayturnoptions(currentplayer);
+    }
+    
+    else{
+      //resources/activating dev card stuff
+      if(selectedValue == 1){
+        displayresources(currentplayer);
+      }
+      //building interface
+      if(selectedValue == 2){
+        displaybuildingoptions(currentplayer);
+      }
+      //trading interface
+      if(selectedValue == 3){
+        displaytradingoptions(currentplayer);
+      }
+      //ending turn and moving on
+      if(selectedValue == 4){
+        dicerolled=false;
+        endturn(currentplayer);
+      }
+      //shows stats
+      if (selectedValue==5){
+        showstats(currentplayer);
+      }
+    }
+  }
+  
+  /*
+   * dicerolling(Player currentplayer) decides what to do after the dice is rolled
+   * this method accounts for rolling a 7, which activates the robber, and
+   * gives resources to players
+   * 
+   * @param Player currentplayer the player that's turn it is
+   * 
+   * 
+   * 
+   * **/
+  
+  public void dicerolling(Player currentplayer){
+    //pretty much robbers and getting resources
+    
+    //rolled is the dicerollednumber 
+    //@see dicerolldisplay() gameboard
+    int rolled=dicerolldisplay();
+    
+    
+    
+    if (rolled==7){
+      //7 activates the robber
+      
+      for (int x=0;x<4;x++){
+        //if any player in the game has more than 7 cards, they lose cards
+        if (getturnorder().get(x).resourcelength()>7){
+          losecards(getturnorder().get(x));
+          
+        }
+      }
+      //otherplayers meant to creat a list of players that are not currentplayer
+      ArrayList<Player> otherplayers = new ArrayList<Player>(3);
+      
+      int count=0;
+      for (int x=0; x<4; x++){
+        //if the player at the position of turnorder() is not the currentplayer, it gets added to the list
+        if (!(getturnorder().get(x).getName().equals(currentplayer.getName()))){
+          otherplayers.add(getturnorder().get(x));
+          
+        }
+        
+      }
+      
+      //activates moveRobber
+      moveRobber(currentplayer,otherplayers.get(0),otherplayers.get(1),otherplayers.get(2));
+      
+      
+    }
+    
+    
+    
+    
+    
+    else{
+      diceresourcegiven(currentplayer,rolled);
+      
+      
+    }
+    
+    
+    
+    
+    
+  }
+  
+  /*
+   * diceresourcegiven(Player currentplayer, int diceroll) determines which players
+   * get which resources after the dice is rolled
+   * 
+   * @param Player currentplayer the player whose turn it is right now
+   * 
+   * @param int diceroll the number that has just been rolled by the dice
+   * 
+   * 
+   * 
+   * 
+   * **/
+  
+  public void diceresourcegiven(Player currentplayer, int diceroll){
+    
+    
+    for (int x=0; x<19;x++){
+      
+      if (getrollorder().get(x)==diceroll){
+        int hexwithresource=x;
+        if (robberblocks(hexwithresource)){
+        }
+        else{
+          String n = getlandresourcematch().get(getlandlist().get(hexwithresource));
+          
+          for(int y=0;y<54;y++){
+            for(int i=0;i<getnoderesources().get(y).length;i++){
+              if (getnoderesources().get(y)[i]==hexwithresource){
+                if (getissettlement().get(y)){
+                  for (int z=0;z<4;z++){
+                    if (getturnorder().get(z).getSettlementlist().contains(y)){
+                      getturnorder().get(z).changeResources(n,1);
+                      JOptionPane.showMessageDialog(this, getturnorder().get(z).getName() +": gets " +n, "Who gets what", JOptionPane.INFORMATION_MESSAGE);
+                      if (getturnorder().get(z).getCityList().contains(y)){
+                        getturnorder().get(z).changeResources(n,1);
+                      }//holy
+                    }//crap
+                  }//Q
+                }//look
+              }//at
+            }//how
+          }//many
+        }//loops
+      }//and ifs
+    }//this
+  }//took
+  
+  
+  
+  /*
+   * robberblocs(int hex) checks whether the robber blocks the hexagon inputted
+   * 
+   * @param int hex the hexagon number that wants to be checked
+   * 
+   * @return whether the robber blocks this hex number
+   * 
+   * 
+   * **/
+  public boolean robberblocks(int hex){
+    
+    int[] blocked = getrobberblocked();
+    
+    int[] checkarray=getnoderesources().get(blocked[0]);
+    ArrayList<Boolean> listtrue= new ArrayList<Boolean>(6);
+    
+    for (int y=0;y<6;y++){
+      checkarray=getnoderesources().get(blocked[y]);
+      for (int x=0; x<checkarray.length;x++){
+        if (checkarray[x]==hex){
+          listtrue.add(true);
+        }
+        
+        
+      }
+    }
+    
+    if (listtrue.size()==6){
+      return true;
+    }
+    else{
+      return false;
+    }
+    
+    
+  }
+  
+  
+  /**
+   * 
+   * losecards(Player currentplayer) causes the player to lose half their cards,
+   * which is chosen by currentplayer
+   * this happens when a 7 is rolled, and the player has more than 7 resource cards
+   * 
+   * @param Player currentplayer the player who is losing cards
+   * 
+   * 
+   * 
+   * **/
+  public void losecards(Player currentplayer){
+    
+    int amountlost = (int) currentplayer.resourcelength()/2;
+    
+    
+    for (int x=0; x<amountlost;x++){
+      String[] resourceoption = new String[currentplayer.resourcelength()];
+      
+      for (int i=0;i<currentplayer.resourcelength();i++){
+        resourceoption[i]=currentplayer.getResources().get(i);
+        
+      }
+      
+      
+      int resourcevaluegotten= JOptionPane.showOptionDialog(this, "Select a resource to remove", currentplayer.getName(), JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, resourceoption, 0);
+      currentplayer.getResources().remove(resourcevaluegotten);
+    }
+  }
+  
+  /*
+   * 
+   * displayresources(Player currentplayer) displays the resource interface, where the player can
+   * either look at the resources he/she has, or look at and activate devcards
+   * 
+   * @param Player currentplayer the player whose turn it is
+   * 
+   * 
+   * 
+   * **/
+  
+  public void displayresources(Player currentplayer){
+    //displays the resources of the player, as well as dev cards
+    Object[] options= {"Resources", "Development Cards"};
+    int selectedValue=JOptionPane.showOptionDialog(this, "Select resource to view/use", "Resource Menu", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, 0);
+    if (selectedValue==0){
+      
+      //displays resources
+      JOptionPane.showMessageDialog(this, currentplayer.getResources(), "Resources you have",JOptionPane.INFORMATION_MESSAGE);
+    }
+    if (selectedValue==1){
+      //displays devcards, and has options to activate dev cards
+      ArrayList<String> devcards= currentplayer.getDevcards();
+      
+      String[] altered= new String[devcards.size()];
+      
+      for (int x=0; x<devcards.size();x++){
+        altered[x]=devcards.get(x);
+        
+      }
+      //gives option of selecting a devcard, or changing one's mind and closing the interface
+      int devcardoption=JOptionPane.showOptionDialog(this, "Select a dev card to activate, or close to cancel", "Devcard Menu", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, altered, 0);
+      //makes sure whether a dev card was chosen or not
+      if (devcardoption>-1){
+        
+        if (currentplayer.getdevcardplayed()){
+          //if devcard has already been played by player, player stops this turn
+          JOptionPane.showMessageDialog(this,"Dev card has already been played", "Illegal Move",JOptionPane.ERROR_MESSAGE);
+        }
+        
+        else{
+          //activates devolopment card
+          activatedevcard(currentplayer,devcards.get(devcardoption));
+          //sets devcardalreadyplayed to true, so player can't activate again this turn
+          currentplayer.setdevcardplayed(true);
+        }
+        
+      }
+      
+    }
+    
+    
+    
+    
+    //at the very end, goes back to the turn interface
+    displayturnoptions(currentplayer);
+  }
+  
+  /*  displaybuildingoptions(Player currentplayer) pulls up the building interface used 
+   * for building/buying settlements, cities, roads, dev cards,etc.
+   * 
+   * 
+   * @param Player currentplayer player whose turn it is
+   * 
+   * 
+   * 
+   * 
+   * **/
+  
+  
+  
+  
+  
+  public void displaybuildingoptions(Player currentplayer){
+    
+    
+    Object[] options= {"settlement","road","city","development card"};
+    int selectedValue=JOptionPane.showOptionDialog(this, "Select what to buy", "Building Menu", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, 0);
+    // @see getresourcecount in Player
+    // getresourcecount - [woolcount,woodcount,wheatcount,brickcount,orecount]
+    int[] resourcecount= currentplayer.getresourcecount();
+    if (selectedValue==0){
+      //makes sure player has not maxed out settlements
+      if (currentplayer.getSettlementlist().size()==6){
+        JOptionPane.showMessageDialog(this,"You have maxed out the amount of settlements built","OOPS",JOptionPane.ERROR_MESSAGE);
+        
+      }
+      else{
+        //if statement below makes sure player has the resources
+        if ( resourcecount[0]>=1 && resourcecount[1]>=1 && resourcecount[2]>=1&&resourcecount[3]>=1){
+          //activates buySettlement from SettlersTrading
+          buySettlement(currentplayer);
+          //adds a victorypoint to currentplayer
+          currentplayer.changeVictoryPoints("settlement");
+          
+        }
+        else{
+          //doesn't let player buy if player doesn't have resources
+          JOptionPane.showMessageDialog(this, "You don't have the resources required","Invalid Move",JOptionPane.ERROR_MESSAGE);
+        }
+      }
+    }
+    if (selectedValue==1){
+      //makes sure currentplayer has not maxed out roads
+      if (currentplayer.getplayerRoad().size()==16){
+        JOptionPane.showMessageDialog(this,"You have maxed out in the amount of roads built","OOPS",JOptionPane.ERROR_MESSAGE);
+      }
+      else{
+        //checks that player has at least one wood and brick
+        if ( resourcecount[1]>=1 &&resourcecount[3]>=1){
+          //activates buyRoad
+          buyRoad(currentplayer);
+        }
+        else{
+          //doesn't let player buy if not enough resources
+          JOptionPane.showMessageDialog(this, "You don't have the resources required","Invalid Move",JOptionPane.ERROR_MESSAGE);
+        }
+      }
+    }
+    
+    if (selectedValue==2){
+      //makes sure currentplayer has not maxed out number of cities
+      if (currentplayer.getCityList().size()==3){
+        
+        JOptionPane.showMessageDialog(this,"You have maxed out in the amount of cites built","OOPS",JOptionPane.ERROR_MESSAGE);
+      }
+      else{
+        //checks if player has enough to buy a city
+        if ( resourcecount[2]>=2 &&resourcecount[4]>=3){
+          //activates buy city
+          buyCity(currentplayer);
+          //adds a victory point to player once player buys city
+          currentplayer.changeVictoryPoints("city");
+        }
+        else{
+          //doesn't let player buy if not enough resources
+          JOptionPane.showMessageDialog(this, "You don't have the resources required","Invalid Move",JOptionPane.ERROR_MESSAGE);
+        }
+      }
+    }
+    
+    if (selectedValue==3){
+      //checks if player has enough to buy dev cards
+      if (resourcecount[0]>=1 && resourcecount[2]>=1 &&resourcecount[4]>=1 ){
+        String n= buyDevCard(currentplayer);
+        //tells which dev card was drawn
+        JOptionPane.showMessageDialog(this,"You drew " + n, "Dev Card Draw", JOptionPane.INFORMATION_MESSAGE); 
+        if (n.equals("victory point")){
+          //if victory point is drawn, player gets another vp
+          currentplayer.changeVictoryPoints("victorycard");
+          
+        }
+        
+      }
+      else{
+        //doesn't let player buy if not enough resources
+        JOptionPane.showMessageDialog(this, "You don't have the resources required","Invalid Move",JOptionPane.ERROR_MESSAGE);
+      }
+    }
+    
+    
+    
+    
+    
+    displayturnoptions(currentplayer);
+    
+    
+  }
+  
+  /*
+   * 
+   * displaytradingoptions(Player currentoptions) allows trades to be conducted through interface, either
+   * between players or banking for resources
+   * 
+   * @param Player currentoptions Player who's turn it is right now
+   * 
+   * **/
+  
+  public void displaytradingoptions(Player currentoptions){
+    Object[] options= {"Player Trading", "Bank"};
+    int selectedValue=JOptionPane.showOptionDialog(this, "Select trading type", "Trade Menu", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, 0);
+    if(selectedValue == -1){
+      //if trade interface is closed, goes back to turn options
+      displayturnoptions(currentoptions);
+    }
+    
+    
+    if (selectedValue==0){
+      //interplaying trading
+      
+      //***************************************************************************************************
+      //all this creates an interface to add or subtract trades
+      
+      JTextField wooloffered = new JTextField();
+      JTextField woodoffered = new JTextField();
+      JTextField wheatoffered = new JTextField();
+      JTextField brickoffered = new JTextField();
+      JTextField oreoffered = new JTextField();
+      
+      JButton wooladdoffered = new JButton("add");
+      JButton woodaddoffered = new JButton("add");
+      JButton wheataddoffered = new JButton("add");
+      JButton brickaddoffered = new JButton("add");
+      JButton oreaddoffered = new JButton("add");
+      
+      JButton woolminusoffered = new JButton("minus");
+      JButton woodminusoffered = new JButton("minus");
+      JButton wheatminusoffered = new JButton("minus");
+      JButton brickminusoffered = new JButton("minus");
+      JButton oreminusoffered = new JButton("minus");
+      
+      JLabel woollabel= new JLabel("wool");
+      JLabel woodlabel= new JLabel("wood");
+      JLabel wheatlabel= new JLabel("wheat");
+      JLabel orelabel= new JLabel("ore");
+      JLabel bricklabel= new JLabel("brick");
+      
+      JPanel offered= new JPanel();
+      offered.setLayout(new GridLayout(5,1));
+      
+      JPanel wool= new JPanel();
+      wool.add(woolminusoffered);
+      wool.add(wooloffered);
+      wooloffered.setText("0");
+      wool.add(wooladdoffered);
+      wool.add(woollabel);
+      offered.add(wool);
+      
+      JPanel wood =new JPanel();
+      wood.add(woodminusoffered);
+      wood.add(woodoffered);
+      woodoffered.setText("0");
+      wood.add(woodaddoffered);
+      wood.add(woodlabel);
+      offered.add(wood);
+      
+      JPanel wheat =new JPanel();
+      wheat.add(wheatminusoffered);
+      wheat.add(wheatoffered);
+      wheatoffered.setText("0");
+      wheat.add(wheataddoffered);
+      wheat.add(wheatlabel);
+      offered.add(wheat);
+      
+      JPanel brick =new JPanel();
+      brick.add(brickminusoffered);
+      brick.add(brickoffered);
+      brickoffered.setText("0");
+      brick.add(brickaddoffered);
+      brick.add(bricklabel);
+      offered.add(brick);
+      
+      JPanel ore =new JPanel();
+      ore.add(oreminusoffered);
+      ore.add(oreoffered);
+      oreoffered.setText("0");
+      ore.add(oreaddoffered);
+      ore.add(orelabel);
+      offered.add(ore);
+      
+      
+      wooladdoffered.addActionListener(e->{
+        
+        if (wooloffered.getText()==null){
+          wooloffered.setText(Integer.toString(1));
+        }
+        int added=Integer.valueOf(wooloffered.getText())+1;
+        wooloffered.setText(Integer.toString(added));
+        
+      });
+      
+      woolminusoffered.addActionListener(e->{
+        if (Integer.valueOf(wooloffered.getText())==null){
+          wooloffered.setText(Integer.toString(0));
+        }
+        
+        if (Integer.valueOf(wooloffered.getText())==0){
+          wooloffered.setText("0");
+        }
+        else{
+          int minus=Integer.valueOf(wooloffered.getText())-1;
+          wooloffered.setText(Integer.toString(minus));
+        }
+      });
+      
+      
+      woodaddoffered.addActionListener(e->{
+        
+        if (woodoffered.getText()==null){
+          woodoffered.setText(Integer.toString(1));
+        }
+        int added=Integer.valueOf(woodoffered.getText())+1;
+        woodoffered.setText(Integer.toString(added));
+        
+      });
+      
+      woodminusoffered.addActionListener(e->{
+        if (Integer.valueOf(woodoffered.getText())==null){
+          woodoffered.setText(Integer.toString(0));
+        }
+        
+        if (Integer.valueOf(woodoffered.getText())==0){
+          woodoffered.setText("0");
+        }
+        else{
+          int minus=Integer.valueOf(woodoffered.getText())-1;
+          woodoffered.setText(Integer.toString(minus));
+        }
+      });
+      
+      wheataddoffered.addActionListener(e->{
+        
+        if (wheatoffered.getText()==null){
+          wheatoffered.setText(Integer.toString(1));
+        }
+        int added=Integer.valueOf(wheatoffered.getText())+1;
+        wheatoffered.setText(Integer.toString(added));
+        
+      });
+      
+      wheatminusoffered.addActionListener(e->{
+        if (Integer.valueOf(wheatoffered.getText())==null){
+          wheatoffered.setText(Integer.toString(0));
+        }
+        
+        if (Integer.valueOf(wheatoffered.getText())==0){
+          wheatoffered.setText("0");
+        }
+        else{
+          int minus=Integer.valueOf(wheatoffered.getText())-1;
+          wheatoffered.setText(Integer.toString(minus));
+        }
+      });
+      
+      
+      oreaddoffered.addActionListener(e->{
+        
+        if (wheatoffered.getText()==null){
+          oreoffered.setText(Integer.toString(1));
+        }
+        int added=Integer.valueOf(oreoffered.getText())+1;
+        oreoffered.setText(Integer.toString(added));
+        
+      });
+      
+      oreminusoffered.addActionListener(e->{
+        if (Integer.valueOf(oreoffered.getText())==null){
+          oreoffered.setText(Integer.toString(0));
+        }
+        
+        if (Integer.valueOf(oreoffered.getText())==0){
+          oreoffered.setText("0");
+        }
+        else{
+          int minus=Integer.valueOf(oreoffered.getText())-1;
+          oreoffered.setText(Integer.toString(minus));
+        }
+      });
+      
+      
+      brickaddoffered.addActionListener(e->{
+        
+        if (brickoffered.getText()==null){
+          brickoffered.setText(Integer.toString(1));
+        }
+        int added=Integer.valueOf(brickoffered.getText())+1;
+        brickoffered.setText(Integer.toString(added));
+        
+      });
+      
+      brickminusoffered.addActionListener(e->{
+        if (Integer.valueOf(brickoffered.getText())==null){
+          brickoffered.setText(Integer.toString(0));
+        }
+        
+        if (Integer.valueOf(brickoffered.getText())==0){
+          brickoffered.setText("0");
+        }
+        else{
+          int minus=Integer.valueOf(brickoffered.getText())-1;
+          brickoffered.setText(Integer.toString(minus));
+        }
+      });
+      
+      
+      
+      
+      
+      
+      
+      int result = JOptionPane.showConfirmDialog(this, offered,"Resources Offered", JOptionPane.OK_CANCEL_OPTION);
+      //*******************************************************************************************************
+      
+      
+      //if closed out or canceled, returns to current player's turn options
+      if (result==-1 || result==2){
+        displayturnoptions(currentoptions);
+      }
+      //otherwise, player goes on
+      if (result==0){
+        //wool,wood,wheat,brick,ore
+        
+        int[] resourcelist= currentoptions.getresourcecount();
+        
+        //checks if player has the necessary resources player is offering
+        if (Integer.valueOf(wooloffered.getText())>resourcelist[0] || 
+            Integer.valueOf(woodoffered.getText())>resourcelist[1] ||
+            Integer.valueOf(wheatoffered.getText())>resourcelist[2] ||
+            Integer.valueOf(brickoffered.getText())>resourcelist[3] ||
+            Integer.valueOf(oreoffered.getText())>resourcelist[4]
+           ){
+          
+          
+          JOptionPane.showMessageDialog(this,"You do not have resources you are offering","Illegal Move", JOptionPane.ERROR_MESSAGE);
+          displayturnoptions(currentoptions);
+          
+          
+        }
+        else{
+          
+          //**********************************************************************************************************
+          //this section pulls up an interface for the kind of reosources
+          //resources the player wants
+          
+          JPanel wanted=new JPanel();
+          wanted.setLayout(new GridLayout(5,1));
+          
+          JTextField woolwanted = new JTextField();
+          JTextField woodwanted = new JTextField();
+          JTextField wheatwanted = new JTextField();
+          JTextField brickwanted = new JTextField();
+          JTextField orewanted = new JTextField();
+          
+          JButton wooladdwanted = new JButton("add");
+          JButton woodaddwanted = new JButton("add");
+          JButton wheataddwanted = new JButton("add");
+          JButton brickaddwanted = new JButton("add");
+          JButton oreaddwanted = new JButton("add");
+          
+          JButton woolminuswanted = new JButton("minus");
+          JButton woodminuswanted = new JButton("minus");
+          JButton wheatminuswanted = new JButton("minus");
+          JButton brickminuswanted = new JButton("minus");
+          JButton oreminuswanted = new JButton("minus");
+          
+          JLabel woollabelw= new JLabel("wool");
+          JLabel woodlabelw= new JLabel("wood");
+          JLabel wheatlabelw= new JLabel("wheat");
+          JLabel orelabelw= new JLabel("ore");
+          JLabel bricklabelw= new JLabel("brick");
+          
+          
+          JPanel woolw= new JPanel();
+          woolw.add(woolminuswanted);
+          woolw.add(woolwanted);
+          woolwanted.setText("0");
+          woolw.add(wooladdwanted);
+          woolw.add(woollabelw);
+          wanted.add(woolw);
+          
+          JPanel woodw =new JPanel();
+          woodw.add(woodminuswanted);
+          woodw.add(woodwanted);
+          woodwanted.setText("0");
+          woodw.add(woodaddwanted);
+          woodw.add(woodlabelw);
+          wanted.add(woodw);
+          
+          JPanel wheatw =new JPanel();
+          wheatw.add(wheatminuswanted);
+          wheatw.add(wheatwanted);
+          wheatwanted.setText("0");
+          wheatw.add(wheataddwanted);
+          wheatw.add(wheatlabelw);
+          wanted.add(wheatw);
+          
+          JPanel brickw =new JPanel();
+          brickw.add(brickminuswanted);
+          brickw.add(brickwanted);
+          brickwanted.setText("0");
+          brickw.add(brickaddwanted);
+          brickw.add(bricklabelw);
+          wanted.add(brickw);
+          
+          JPanel orew =new JPanel();
+          orew.add(oreminuswanted);
+          orew.add(orewanted);
+          orewanted.setText("0");
+          orew.add(oreaddwanted);
+          orew.add(orelabelw);
+          wanted.add(orew);
+          
+          
+          wooladdwanted.addActionListener(e->{
+            
+            if (woolwanted.getText()==null){
+              woolwanted.setText(Integer.toString(1));
+            }
+            int added=Integer.valueOf(woolwanted.getText())+1;
+            woolwanted.setText(Integer.toString(added));
+            
+          });
+          
+          woolminuswanted.addActionListener(e->{
+            if (Integer.valueOf(woolwanted.getText())==null){
+              woolwanted.setText(Integer.toString(0));
+            }
+            
+            if (Integer.valueOf(woolwanted.getText())==0){
+              woolwanted.setText("0");
+            }
+            else{
+              int minus=Integer.valueOf(woolwanted.getText())-1;
+              woolwanted.setText(Integer.toString(minus));
+            }
+          });
+          
+          
+          woodaddwanted.addActionListener(e->{
+            
+            if (woodwanted.getText()==null){
+              woodwanted.setText(Integer.toString(1));
+            }
+            int added=Integer.valueOf(woodwanted.getText())+1;
+            woodwanted.setText(Integer.toString(added));
+            
+          });
+          
+          woodminuswanted.addActionListener(e->{
+            if (Integer.valueOf(woodwanted.getText())==null){
+              woodwanted.setText(Integer.toString(0));
+            }
+            
+            if (Integer.valueOf(woodwanted.getText())==0){
+              woodwanted.setText("0");
+            }
+            else{
+              int minus=Integer.valueOf(woodwanted.getText())-1;
+              woodwanted.setText(Integer.toString(minus));
+            }
+          });
+          
+          wheataddwanted.addActionListener(e->{
+            
+            if (wheatwanted.getText()==null){
+              wheatwanted.setText(Integer.toString(1));
+            }
+            int added=Integer.valueOf(wheatwanted.getText())+1;
+            wheatwanted.setText(Integer.toString(added));
+            
+          });
+          
+          wheatminuswanted.addActionListener(e->{
+            if (Integer.valueOf(wheatwanted.getText())==null){
+              wheatwanted.setText(Integer.toString(0));
+            }
+            
+            if (Integer.valueOf(wheatwanted.getText())==0){
+              wheatwanted.setText("0");
+            }
+            else{
+              int minus=Integer.valueOf(wheatwanted.getText())-1;
+              wheatwanted.setText(Integer.toString(minus));
+            }
+          });
+          
+          
+          oreaddwanted.addActionListener(e->{
+            
+            if (wheatwanted.getText()==null){
+              orewanted.setText(Integer.toString(1));
+            }
+            int added=Integer.valueOf(orewanted.getText())+1;
+            //Q, if you're reading this you should give me an A- pls
+            orewanted.setText(Integer.toString(added));
+            
+          });
+          
+          oreminuswanted.addActionListener(e->{
+            if (Integer.valueOf(orewanted.getText())==null){
+              orewanted.setText(Integer.toString(0));
+            }
+            
+            if (Integer.valueOf(orewanted.getText())==0){
+              orewanted.setText("0");
+            }
+            else{
+              int minus=Integer.valueOf(orewanted.getText())-1;
+              orewanted.setText(Integer.toString(minus));
+            }
+          });
+          
+          
+          brickaddwanted.addActionListener(e->{
+            
+            if (brickwanted.getText()==null){
+              brickwanted.setText(Integer.toString(1));
+            }
+            int added=Integer.valueOf(brickwanted.getText())+1;
+            brickwanted.setText(Integer.toString(added));
+            
+          });
+          
+          brickminuswanted.addActionListener(e->{
+            if (Integer.valueOf(brickwanted.getText())==null){
+              brickwanted.setText(Integer.toString(0));
+            }
+            
+            if (Integer.valueOf(brickwanted.getText())==0){
+              brickwanted.setText("0");
+            }
+            else{
+              int minus=Integer.valueOf(brickwanted.getText())-1;
+              brickwanted.setText(Integer.toString(minus));
+            }
+          });
+          
+          
+          
+          
+          int resultwant=JOptionPane.showConfirmDialog(this, wanted,"Resources Wanted", JOptionPane.OK_CANCEL_OPTION);
+          //***********************************************************************************************************
+          
+          
+          
+          if (resultwant==-1 || resultwant==2){
+            displayturnoptions(currentoptions);
+          }
+          if (resultwant==0){
+            //sees if any player accepts the trade
+            
+            
+            //recaps the trade that current player wants to conduct
+            
+            JOptionPane.showMessageDialog(this, wooloffered.getText() + " wool" 
+                                            +" " + woodoffered.getText() +" wood"
+                                            +" " + wheatoffered.getText() +" wheat"
+                                            +" " + brickoffered.getText() +" brick"
+                                            +" " + oreoffered.getText() +" ore", "Trade Offered", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, woolwanted.getText() + " wool" 
+                                            +" " + woodwanted.getText() +" wood"
+                                            +" " + wheatwanted.getText() +" wheat"
+                                            +" " + brickwanted.getText() +" brick"
+                                            +" " + orewanted.getText() +" ore", "Trade Wanted", JOptionPane.INFORMATION_MESSAGE);
+            
+            
+            
+            //displays an array of all players
+            Object[] otherplayers = {getturnorder().get(0).getName(),getturnorder().get(1).getName(),getturnorder().get(2).getName(),getturnorder().get(3).getName(),"no players"};
+            //asks if any player accepts the offer
+            int playeraccept= JOptionPane.showOptionDialog(this, "Does any player accept offer?", "Trade Menu", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, otherplayers, 0);
+            
+            
+            //if player closes trade interfaces, or no players accept offer
+            
+            if (playeraccept==-1|| playeraccept==4){
+              displayturnoptions(currentoptions);
+            }
+            
+            else{
+              
+              //makes sure that the player that accepts the offer also has the resources required
+              
+              int[] acceptresourcelist= getturnorder().get(playeraccept).getresourcecount();
+              if (Integer.valueOf(woolwanted.getText())>acceptresourcelist[0] || 
+                  Integer.valueOf(woodwanted.getText())>acceptresourcelist[1] ||
+                  Integer.valueOf(wheatwanted.getText())>acceptresourcelist[2] ||
+                  Integer.valueOf(brickwanted.getText())>acceptresourcelist[3] ||
+                  Integer.valueOf(orewanted.getText())>acceptresourcelist[4]
+                 ){
+                
+                JOptionPane.showMessageDialog(this, "Player that accepted does not actually have these resources","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+              }
+              else{
+                
+                //conducts the trade
+                
+                ArrayList<String> resourcebleh=new ArrayList<String>(5);
+                
+                resourcebleh.add("wool");
+                resourcebleh.add("wood");
+                resourcebleh.add("wheat");
+                resourcebleh.add("brick");
+                resourcebleh.add("ore");
+                
+                int[] wantedresults = new int[5];
+                wantedresults[0]=Integer.valueOf(woolwanted.getText());
+                wantedresults[1]=Integer.valueOf(woodwanted.getText());
+                wantedresults[2]=Integer.valueOf(wheatwanted.getText());
+                wantedresults[3]=Integer.valueOf(brickwanted.getText());
+                wantedresults[4]=Integer.valueOf(orewanted.getText());
+                
+                int[] negwantedresult= new int[5];
+                
+                for (int x=0;x<5;x++){
+                  negwantedresult[x]=-1*wantedresults[x];
+                }
+                
+                int[] offeredresults= new int[5];
+                offeredresults[0]= Integer.valueOf(wooloffered.getText());
+                offeredresults[1]= Integer.valueOf(woodoffered.getText());
+                offeredresults[2]= Integer.valueOf(wheatoffered.getText());
+                offeredresults[3]= Integer.valueOf(brickoffered.getText());
+                offeredresults[4]= Integer.valueOf(oreoffered.getText());
+                
+                int[] negofferedresult= new int[5];
+                
+                for(int x=0;x<5;x++){
+                  negofferedresult[x]=-1*offeredresults[x];
+                }
+                
+                
+                //makes sure both parties are offering some sort of trade
+                
+                if (iszero(offeredresults) || iszero(wantedresults)){
+                  unfairtrade();
+                  
+                }
+                
+                else{
+                  //trading is finally conducted!
+                  
+                  currentoptions.changeResources(resourcebleh,wantedresults);
+                  currentoptions.changeResources(resourcebleh,negofferedresult);
+                  
+                  getturnorder().get(playeraccept).changeResources(resourcebleh,offeredresults);
+                  getturnorder().get(playeraccept).changeResources(resourcebleh,negwantedresult);
+                  
+                  
+                }
+                
+              }
+              
+              
+            }
+            
+            
+            
+            
+          }
+          
+          
+          
+          
+          
+          
+          
+        }
+      }
+    }
+    //bank trading is conducted
+    else if (selectedValue==1){
+      
+      String[] resourceoptions = {"wool", "wood","wheat","brick","ore"};
+      
+      //asks which resource is being turned in
+      
+      int resourcevalue= JOptionPane.showOptionDialog(this, "Select a resource to turn in", "Bank", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, resourceoptions, 0);
+      //if player closes interface
+      if (resourcevalue==-1){
+        
+        displayturnoptions(currentoptions);
+      }
+      
+      //asks how much is being turned in
+      String amountvalue = JOptionPane.showInputDialog(this, "Input amount you want to trade in." + " (Must be greater than 1 and less than 5)");
+      
+      ArrayList<String> tradein =  new ArrayList<String>(4);
+      
+      //creates an arraylist with the amount of resources added
+      for (int i=0;i<Integer.valueOf(amountvalue);i++){
+        tradein.add(resourceoptions[resourcevalue]);
+      }
+      
+      int[] resourcecheck=currentoptions.getresourcecount();
+      if(Integer.valueOf(amountvalue)>resourcecheck[resourcevalue]){
+        //checks to make sure player has the amount of resources player planned on trading in
+        JOptionPane.showMessageDialog(this,"You do not have the resource amount you are offering", "Invalid Move",JOptionPane.ERROR_MESSAGE);
+        displayturnoptions(currentoptions);
+      }
+      else{
+        //conducts the bank trade
+        int resourcevaluegotten= JOptionPane.showOptionDialog(this, "Select a resource to get", "Bank", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, resourceoptions, 0);
+        
+        //activates bank(player a, ArrayList<String> b, String c) from SettlersTrading
+        bank(currentoptions,tradein,resourceoptions[resourcevaluegotten]);
+        //goes back to the turn
+        displayturnoptions(currentoptions);
+      }
+      
+      
+      
+    }
+    //just in case function end is reached, and player has not returned to displayturnoptions yet
+    displayturnoptions(currentoptions);
+  }
+  
+  
+  /*
+   * endturn(Player currentplayer) ends currentplayer's turn and moves on to the next player
+   * it makes sure if currentplayer gets any victory points for longest road or largest army
+   * 
+   * 
+   * @param Player currentplayer the player whose turn it is
+   * 
+   * **/
+  
+  public void endturn(Player currentplayer){
+    //move on to next player in turn order, checks for largest army and longestroad
+    
+    //checks if currentplayer now has longest road
+    
+    if (currentplayer.getlongestroad()>=5 && longestroad==null){
+      longestroad=currentplayer;
+      currentplayer.changeVictoryPoints("longestroad");
+    }
+    else if (longestroad!=null &&currentplayer.getlongestroad()>longestroad.getlongestroad() ){
+      longestroad=currentplayer;
+      currentplayer.changeVictoryPoints("longestroad");
+      longestroad.changeVictoryPoints("notlongestroad");
+    }
+    
+    //checks if currentplayer now has the largest army
+    if (currentplayer.getarmy()>=3 && largestarmy==null){
+      largestarmy=currentplayer;
+      currentplayer.changeVictoryPoints("largestarmy");
+    }
+    else if (largestarmy !=null && currentplayer.getarmy()>largestarmy.getarmy() ){
+      largestarmy=currentplayer;
+      currentplayer.changeVictoryPoints("largestarmy");
+      longestroad.changeVictoryPoints("notlargestarmy");
+    }
+    
+    //checks if currentplayer now wins the game
+    if (currentplayer.getVictoryPoints()>=10){
+      JOptionPane.showMessageDialog(this, currentplayer.getName()+ " wins the game!", "Game Over", JOptionPane.INFORMATION_MESSAGE);
+    }
+    else{
+      //else, moves on to the next player
+      int turnplace=0;
+      for (int x=0;x<4;x++){
+        if (getturnorder().get(x).getName().equals(currentplayer.getName())){
+          turnplace=x;
+        }
+        
+      }
+      if (turnplace==3){
+        displayturnoptions(getturnorder().get(0));
+      }
+      
+      else{
+        displayturnoptions(getturnorder().get(turnplace+1));
+      }
+    }
+  }
+  
+  
+  /*
+   * 
+   * iszero(int[] x) checks whether all the numbers in the array are zero
+   * 
+   * @param int[] x array of resource numbers
+   * 
+   * @return whether all the numbers in the array are zeroes
+   * 
+   * **/
+  public boolean iszero(int[] x){
+    for (int i=0; i<x.length;i++){
+      if (x[i]>0){
+        return false;
+      }
+      
+    }
+    return true;
+  }
+  
+  
+  //*************************************************************************************************************
+  
+  //These methods are for development cards
+  
+  
+  /*monopoly(Player currentplayer) is the monopoly dev card in Settlers
+   * 
+   * this card has the player declare a resource, and everyone with that resource must give the player this resource
+   * 
+   * @param Player currentplayer, the player whose turn it is right now
+   * 
+   * 
+   * **/
+  
+  public void monopoly(Player currentplayer){
+    String[] resourcestuff= {"wool","wood","wheat","brick","ore"};
+    //selects which resource to take
+    int resourcemonopolized= JOptionPane.showOptionDialog(this, "Select a resource to get", "Monopoly", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, resourcestuff, 0);
+    
+    
+    int totalresourcecount=0;
+    
+    for (int x=0;x<4;x++){
+      int arraymarker=getturnorder().get(x).getResources().size();
+      for(int y=0;y<arraymarker;y++){
+        if (getturnorder().get(x).getResources().get(y).equals(resourcestuff[resourcemonopolized])){
+          //if a player has this declared resource, it is removed, and the totalresourcecount increases by 1
+          getturnorder().get(x).getResources().remove(y);
+          totalresourcecount++;
+        }
+      }
+    }
+    
+    //the player then gets the resource "totalresourcecount" times
+    
+    currentplayer.changeResources(resourcestuff[resourcemonopolized] ,totalresourcecount);
+    
+    
+  }
+  
+  
+  /* invention(Player currentplayer) is the invention devcard in settlers
+   * 
+   * currentplayer gets two extra resources of currentplayer's choice
+   * 
+   * @param Player currentplayer player whose turn it is
+   * 
+   * */
+  
+  
+  
+  public void invention(Player currentplayer){
+    String[] resourcestuff= {"wool","wood","wheat","brick","ore"};
+    
+    //asks for the first resource and adds it on
+    int resourcewantone= JOptionPane.showOptionDialog(this, "Select a resource to get", "Invention", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, resourcestuff, 0);
+    currentplayer.changeResources(resourcestuff[resourcewantone] ,1);
+    changedeck(resourcestuff[resourcewantone],-1);
+    //asks for the second resource, and adds it on
+    int resourcewanttwo= JOptionPane.showOptionDialog(this, "Select a resource to get", "Invention", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, resourcestuff, 0);
+    currentplayer.changeResources(resourcestuff[resourcewanttwo] ,1);
+    changedeck(resourcestuff[resourcewanttwo],-1);
+    
+  }
+  
+  /*knight(Player currentplayer) is the knight devcard in settlers
+   * 
+   * this card moves the robber, according to currentplayer's choosing
+   * 
+   * @param Player currentplayer, the player whose turn it is right now
+   * **/
+  
+  
+  public void knight(Player currentplayer){
+    //adds one to the currentplayer's army
+    currentplayer.addarmy();
+    
+    ArrayList<Player> otherplayers = new ArrayList<Player>(3);
+    
+    
+    for (int x=0; x<4; x++){
+      if (!(getturnorder().get(x).getName().equals(currentplayer.getName()))){
+        otherplayers.add(getturnorder().get(x));
+        
+      }
+      
+    }
+    //moves the robber
+    moveRobber(currentplayer,otherplayers.get(0),otherplayers.get(1),otherplayers.get(2));
+  }
+  
+  
+  
+  /*
+   * roadbuilding(Player currentplayer) is a devcard in settlers
+   * 
+   * this allows currentplayer to build two free roads without paying resources
+   * 
+   * **/
+  public void roadbuilding(Player currentplayer){
+    addRoad(currentplayer);
+    addRoad(currentplayer);
+  }
+  
+  /*activatedevcard(Player currentplayer,String x) translates a String command into a dev card command,
+   * assuming that currentplayer plays the dev card
+   * 
+   * 
+   * @param Player currentplayer the player whose turn it is right now
+   * 
+   * @param String x the command that the player gives for the dev card
+   * 
+   * **/
+  
+  public void activatedevcard(Player currentplayer,String x){
+    
+    
+    if (x.equals("knight")){
+      knight(currentplayer);
+    }
+    
+    if (x.equals("monopoly")){
+      monopoly(currentplayer);
+    }
+    if (x.equals("road building")){
+      roadbuilding(currentplayer);
+    }
+    
+    if(x.equals("invention")){
+      invention(currentplayer);
+    }
+    
+    currentplayer.removeDevcard(x);
+    
+  }
+  
+  //*******************************************************************************************************8
+  
+  /*showstats(Player currentplayer) displays general useful information for currentplayer.
+   * 
+   * @param Player currentplayer the player whose turn it is right now
+   * 
+   * 
+   * **/
+  
+  public void showstats(Player currentplayer){
+    Map<Color,String> colordict = new HashMap<Color,String>(4);
+    
+    colordict.put(Color.ORANGE,"orange");
+    colordict.put(Color.CYAN,"cyan");
+    colordict.put(Color.RED,"red");
+    colordict.put(Color.WHITE,"white");
+    
+    
+    
+    JOptionPane.showMessageDialog(this," Your color: " + colordict.get(currentplayer.getColor())+
+                                  " Victory Points: "+ currentplayer.getVictoryPoints()+
+                                  " Army Size: " + currentplayer.getarmy() +
+                                  " Longest Road: " + currentplayer.getlongestroad()+
+                                  " Your ports: " + currentplayer.getPortlist(),
+                                  "Player Information", JOptionPane.INFORMATION_MESSAGE);
+    
+    
+    displayturnoptions(currentplayer);
+  }
+  
+}
+
+
+
+
+
