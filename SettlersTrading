@@ -1,0 +1,291 @@
+import java.util.*;
+import java.awt.*;
+import javax.swing.*;
+
+
+//*************************************************Li15M SETTLERS OF CATAN FINAL PROJECT (TRADING CLASS)*******************************************************
+
+
+//this class handles various functions that involve trading in between players 
+
+public class SettlersTrading extends SettlersDecks{
+  private Map<String,String> resourceportmatch = new HashMap<String,String>(19);
+  
+  
+  
+  //***************************************************************************************************************
+  //this section handles buying roads/cities/settlements
+  
+  /*
+   * buyRoad(Player currentplayer) has currentplayer buy a road and spend resources on it
+   * 
+   * @param Player currentplayer the player that is buying the road
+   * 
+   * @see addRoad
+   * 
+   * **/
+  
+  
+  
+  public void buyRoad(Player currentPlayer){
+    
+    
+    
+    //activates addRoad function for the player 
+    if( addRoad(currentPlayer)){
+      //if roadbuilding was successful
+      //currentplayer pays wood and brick resource
+      
+      currentPlayer.changeResources("wood",-1);
+      currentPlayer.changeResources("brick",-1);
+      
+      
+      //the deck gets back wood and brick
+      changeWood(1);
+      changeBrick(1);
+      
+      
+    }
+  }
+  
+  /*
+   * buySettlement(Player currentplayer) has currentplayer buy a settlement and spend resources on it
+   * 
+   * @param Player currentplayer the player that is buying the settlement
+   * 
+   * @see addSettlement
+   * 
+   * **/
+  
+  public void buySettlement(Player currentPlayer){
+    
+    ArrayList<String> resource= new ArrayList<String>(4);
+    int[] change= new int[4];
+    resource.add("wood");
+    resource.add("brick");
+    resource.add("wheat");
+    resource.add("wool");
+    change[0]=-1;
+    change[1]=-1;
+    change[2]=-1;
+    change[3]=-1;
+    
+    
+    //activates addSettlement function
+    if(addSettlement(currentPlayer)){
+      
+      //if successful in building settlement
+      //player spends resources
+      currentPlayer.changeResources(resource,change);
+      
+      //adds back the resources
+      changeWood(1);
+      changeWool(1);
+      changeWheat(1);
+      changeBrick(1);
+    }
+    
+  }
+  
+  
+  /*
+   * buyCity(Player currentplayer) has currentplayer buy a city and spend resources on it
+   * 
+   * @param Player currentplayer the player that is buying the city
+   * 
+   * @see addCity
+   * 
+   * **/
+  public void buyCity(Player currentPlayer){
+    
+    //sets up the resources that currentplayer must spend
+    ArrayList<String> resource= new ArrayList<String>(2);
+    int[] change= new int[2];
+    resource.add("ore");
+    resource.add("wheat");
+    change[0]=-3;
+    change[1]=-2;
+    
+    //activates the City function
+    if (addCity(currentPlayer)){
+      
+      //if city building was successful
+      //player spends resources
+      currentPlayer.changeResources(resource,change);
+      //adds it back to the deck
+      changeOre(3);
+      changeWheat(2);
+    }
+  }
+  
+  /*
+   * buyDevCard(Player currentplayer) has currentplayer buy a devcard and spend resources on it,
+   * drawing randomly from the dev card deck
+   * 
+   * @param Player currentplayer the player that is buying the devcard
+   * 
+   * @return String the dev card that the player draws
+   * 
+   * **/
+  
+  public String buyDevCard(Player currentPlayer){
+    
+    //sets up the resources to spend
+    
+    ArrayList<String> resource= new ArrayList<String>(3);
+    int[] change= new int[3];
+    resource.add("ore");
+    resource.add("wheat");
+    resource.add("wool");
+    change[0]=-1;
+    change[1]=-1;
+    change[2]=-1;
+    
+    
+    //player spends resources
+    
+    currentPlayer.changeResources(resource,change);
+    
+    //adds devcard to player, drawdevcard 
+    currentPlayer.playerdrawDevCard(drawDevcard());
+    
+    
+    changeWheat(1);
+    changeOre(1);
+    changeWool(1);
+    return currentPlayer.getDevcards().get(currentPlayer.getDevcards().size()-1);
+    
+  }
+  
+  
+  //***************************************************************************************************************
+  
+  
+  //this section handles when a player wants to trade in resources for banking
+  
+  
+  /*isAllSame(ArrayList<String> check) checks if every string in check is the same
+   * this is vital in order for banking/trading in resources
+   * 
+   * @param ArrayList<String> check is a list of resources
+   * 
+   * @return whether all the resources in the check is the same
+   * 
+   * 
+   * **/
+  
+  public boolean isAllSame(ArrayList<String> check){
+    
+    for (int x=0;x<check.size();x++){
+      if (!(check.get(0).equals(check.get(x)))){
+        
+        return false;
+      }
+      
+      
+    }
+    
+    return true;
+    
+    
+    
+  }
+  
+  /*bank(Player , ArrayList<String> offered,String returned) allows player a to trade in resources
+   * and get back a new resource
+   * 
+   * @param Player a player that is trading in the resource
+   * 
+   * @param ArrayList<String> offered are the resources that player a is turning in
+   * 
+   * @param String returned is the resource that player a wants
+   * 
+   * **/
+  
+  public void bank(Player a,ArrayList<String> offered,String returned){
+    
+    
+    //creates the resource and which port it corresponds to in resourceportmatch HashMap<String,String>
+    resourceportmatch.put("wool","wool port");
+    resourceportmatch.put("wood","wood port");
+    resourceportmatch.put("wheat","wheat port");
+    resourceportmatch.put("ore","ore port");
+    resourceportmatch.put("brick","brick port");
+    
+    //creates the resource and function that each resource matches up with in regards to drawing from the deck
+    
+    Map<String, Boolean> resourcematch=new HashMap<String,Boolean>(5);
+    
+    resourcematch.put("wool",drawWool());
+    resourcematch.put("wood",drawWood());
+    resourcematch.put("wheat",drawWheat());
+    resourcematch.put("brick",drawBrick());
+    resourcematch.put("ore",drawOre());
+    
+    
+    //if the resources aren't the same, then the trade is stopped and is invalid (see invalidtrade() in gameboard)
+    if (!(isAllSame(offered))){
+      invalidtrade();
+      
+      
+      
+      
+    }
+    //if player a has a 3:1 point, allows player a to only trade in three resources
+    else if(offered.size()==3 && a.getPortlist().contains("3:1 port")){
+      
+      
+      //changes out and trades in the resources for player a
+      a.changeResources(offered.get(0),-3);
+      a.changeResources(returned,1);
+      
+      
+      
+      
+      //changes the deck/adds three resources back to the deck
+      changedeck(offered.get(0),3);
+      if(resourcematch.get(returned)){ 
+        JOptionPane.showMessageDialog(this,"Success","Bank",JOptionPane.INFORMATION_MESSAGE);
+      }
+      else{
+        //oh darn, unfortunate
+        JOptionPane.showMessageDialog(this,"Oops, deck has run out of this resource","Bank",JOptionPane.INFORMATION_MESSAGE);
+      }
+    }
+    
+    //if player a has a specific resource port, then allows validity for this trading:
+    
+    else if(offered.size()==2 && a.getPortlist().contains(resourceportmatch.get(offered.get(0)))){
+      //changes out and trades in the resources for player a
+      
+      a.changeResources(offered.get(0),-2);
+      a.changeResources(returned,1);
+      
+      
+      //adds the resources traded in back to the deck
+      changedeck(offered.get(0),2);
+      if(resourcematch.get(returned)){ 
+        JOptionPane.showMessageDialog(this,"Success","Bank",JOptionPane.INFORMATION_MESSAGE);
+      }
+      else{
+        JOptionPane.showMessageDialog(this,"Oops, deck has run out of this resource","Bank",JOptionPane.INFORMATION_MESSAGE);
+      }
+    }
+    //if player doesn't have available or beneficial ports for this trade, this allows player to trade in all 4 resources
+    else if(offered.size()==4){
+      a.changeResources(offered.get(0),-4);
+      a.changeResources(returned,1);
+      
+      
+      changedeck(offered.get(0),4);
+      if(resourcematch.get(returned)){ 
+        JOptionPane.showMessageDialog(this,"Success","Bank",JOptionPane.INFORMATION_MESSAGE);
+      }
+      else{
+        JOptionPane.showMessageDialog(this,"Oops, deck has run out of this resource","Bank",JOptionPane.INFORMATION_MESSAGE);
+      }
+    }
+  }
+  
+}
+
