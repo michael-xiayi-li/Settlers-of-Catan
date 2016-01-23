@@ -1,0 +1,2520 @@
+import java.awt.*;
+import javax.swing.*;
+import java.util.*;
+
+//*************************************************Li15M SETTLERS OF CATAN FINAL PROJECT*******************************************************
+
+//this class represents the gameboard used to play settlers
+
+
+/*KEY NOTES:
+ * 
+ * the robber is marked by an X, and is located on the diceroll numbers
+ * cities are symbolized with a C on settlements
+ * auto-build function with "auto" typed into start build
+ * no AI present in game...idk how to do that at the moment
+ * 
+ * 
+ * 
+ * **/
+
+
+
+
+public class GameBoard extends JFrame {
+  private Map<String,Integer> dicecast = new HashMap<String,Integer>(19);
+  private ArrayList<Polygon> gamesquares= new ArrayList<Polygon>(19);
+  //three quarries, three mountains, four wheat, four forests, four meadows, one desert
+  private ArrayList<Integer> rollorder = new ArrayList<Integer>(19);
+  // one 2, two 3s, two 4s, two 5s, two 6s, two 8s, two 9s, two 10s, two 11s, two 12s, one null
+  private ArrayList<String> landlist = new ArrayList<String>(19);
+  private ArrayList<Boolean> isRobberHere=new ArrayList<Boolean>(19);
+  Map<String,Color> gamecolor = new HashMap<String,Color>(6);
+  private ArrayList<String> ports = new ArrayList<String>(9);
+  private ArrayList<int[]> nodeports= new ArrayList<int[]>(9);
+  private Map<String,String> landresourcematch= new HashMap<String,String>(6);
+  private Map<Integer,Boolean> isSettlement= new HashMap<Integer,Boolean>(54);
+  private Map<Integer,Boolean> isCity= new HashMap<Integer,Boolean>(54);
+  private Map<Integer,Color> nodeColor= new HashMap<Integer,Color>(54);
+  private Map<Integer,int[]> nodeCoordinate= new HashMap<Integer,int[]>(54); 
+  private boolean numbersOn=false;
+  private boolean resourcenumbersOn=false;
+  private Map<int[],Color> roadmap= new HashMap<int[],Color>(72);
+  private ArrayList<int[]> roads = new ArrayList<int[]>(72);
+  private boolean roadsOn=true;
+  private Map<Integer,int[]> noderesources = new HashMap<Integer,int[]>(54);
+  private int[] robberblocked = new int[6];
+  private ArrayList<Player> turnorder = new ArrayList<Player>(4);
+  private Map<String,Color> coloroptions = new HashMap<String,Color>(4);
+  private int randombuildchosen;
+  
+  
+  //Getters for other classes that extend GameBoard*****************************************************
+  public Map<String,Integer> getDicecast(){
+    return dicecast;
+  }
+  public ArrayList<Integer> getrollorder(){
+    return rollorder;
+  }
+  public Map<Integer,int[]> getnoderesources(){
+    return noderesources;
+  }
+  public ArrayList<String> getlandlist(){
+    return landlist;
+  }
+  public Map<String,String> getlandresourcematch(){
+    return landresourcematch;
+  }
+  public int[] getrobberblocked(){
+    return robberblocked;
+  }
+  public Map<Integer,Boolean> getissettlement(){
+    return isSettlement;
+    
+  }
+  
+  public Map<Integer,Color> getnodecolor(){
+    
+    return nodeColor;
+  }
+  public ArrayList<int[]> getroads(){
+    return roads;
+  }
+  public Map<int[],Color> getroadmap(){
+    return roadmap;
+  }
+  public ArrayList<Player> getturnorder(){
+    return turnorder;
+  }
+  
+  
+  //***************************************************************************************
+  
+  
+  /*
+   * running() was originally the run function in GameBoard; this method runs the GameBoard JFrame
+   * **/
+  
+  public void running(){
+    
+    
+    //these methods cast the gameboard to its starting function
+    castNodes();
+    castNodeCoordinates();
+    castResourceColors();
+    castRobber();
+    castRollOrder();
+    castPorts();
+    castRoadmap();
+    castroads();
+    castNoderesources();
+    castlandresources();
+    castnodeports();
+    colorcast();
+    
+    
+    //settlers is randomized at certain times, so shuffling occurs
+    long seed = System.nanoTime();
+    
+    Collections.shuffle(landlist,new Random(seed));
+    
+    Collections.shuffle(ports,new Random(seed));
+    rollorder.add(landlist.indexOf("desert"),0);
+    isRobberHere.add(landlist.indexOf("desert"),true);
+    
+    for (int x =0;x<19;x++){
+      dicecast.put(landlist.get(x),rollorder.get(x));
+    }
+    
+    
+    //setting size and visibility of JFrame
+    
+    setSize(1600,1000);
+    setVisible(true);
+    
+    start();
+    
+    
+    
+    
+    
+    
+    //TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE
+    /*
+     * 
+     int[] testarray = new int[2];
+     testarray[0]=3;
+     testarray[1]=7;
+     
+     Player test= new Player("yes", Color.RED);
+     Player testtwo= new Player("bli", Color.GREEN);
+     Player testthree= new Player("ino", Color.ORANGE);
+     Player testfour= new Player("der", Color.BLACK);
+     
+     test.changeResources("ore",4);
+     testtwo.changeResources("wood",4);
+     addSettlement(testtwo);
+     moveRobber(test,testtwo,testthree,testfour);
+     System.out.println((test.getResources()));
+     System.out.println((testtwo.getResources()));                 
+     
+     
+     addSettlement(testthree);
+     addSettlement(testfour);
+     addSettlement(test);
+     addRoad(test);
+     addRoad(test);
+     addSettlement(testthree);
+     addCity(testthree);
+     
+     
+     test.addplayerRoad(testarray);
+     addRoad(test);
+     
+     
+     for (Integer name: noderesources.keySet()){
+     
+     String key =name.toString();
+     int[] value = noderesources.get(name);  
+     System.out.println(key + " " + Arrays.toString(value));  
+     }
+     **//*
+     Player a = new Player("a",Color.RED);
+     Player b = new Player("b", Color.YELLOW);
+     Player c = new Player("c", Color.GREEN);
+     
+     
+     turnorder.add(a);
+     turnorder.add(b);
+     turnorder.add(c);
+     
+     
+     **/
+    //TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE TEST CODE
+  }
+  
+  
+  //This section assists in determining coordinates that will later be used for paint(graphics g)**************************************************
+  
+  /**resourcehex returns a hexagon of horizontal/vertical span 100 pixels that will later be drawn to GameBoard
+    * @param n the horizontal position of the hexagon relative to other hexagons
+    * @param w the vertical position of the hexagon relative to other hexagons
+    * @param s comes in multiple of 50s, and determines any slight extra shifts
+    * 
+    * @returns a polygon with coordinates specificed by the paramater
+    * 
+    * 
+    * 
+    * **/
+  public Polygon resourcehex(int n,int w ,int s){
+    n+=4;
+    w+=1;
+    Polygon p = new Polygon();
+    //loops 6 times, each time creating a point that is a corner of a hexagon
+    for (int x = 0; x < 6; x++)
+      p.addPoint(( (int) (200 +100*n+s+ 50 * Math.sin(x * 2 * Math.PI / 6))),
+                 (int) (200 + 90*w+50 * Math.cos(x * 2 * Math.PI / 6)));
+    
+    return p;
+  }
+  
+  /**
+   *  midpoint determines the midpoint of a hexagon
+   *  essentially, midpoint(n,w,s) gives the coordinate for the center of resourcehex(n,w,s)
+   * 
+   * 
+   * @param n horizontal position of the hexagon relative to other hexagons
+   * @param w vertical position of the hexagon relative to other hexagons
+   * @param s comes in multiples of 50s, and determiens any slight extra shifts
+   * 
+   * 
+   * @return the midpoint coordinate for a hexagon
+   * 
+   * @see resourcehex
+   * 
+   * **/
+  
+  public int[] midpoint(int n,int w,int s){
+    n+=4;
+    w +=1;
+    int[] point = new int[2];
+    //takes the midpoint of the first and 3rd coordinate of the hexagon, and therefore creating the middle of the hexagon
+    int x=(int) (((200 +100*n+s+ 50 * Math.sin(0 * 2 * Math.PI / 6)) + (200 +100*n+s+ 50 * Math.sin(3* 2 * Math.PI / 6)))/2);
+    int y =(int) (((200 + 90*w+50 * Math.cos(0 * 2 * Math.PI / 6)) + (200 + 90*w+50 * Math.cos(3 * 2 * Math.PI / 6)))/2);
+    
+    point[0]=x;
+    point[1]=y;
+    
+    
+    return point;
+  }
+  
+  /**buildingpoint creates a coordinate for builiding settlements
+    * 
+    * buildingpoint(n,w,s,cornerplace) will take resourcehex(n,w,s), and return the nth corner that cornerplace gives
+    * @param n horizontal position of the hexagon relative to other hexagons
+    * @param w vertical position of the hexagon relative to other hexagons
+    * @param s comes in multiples of 50s, and determiens any slight extra shifts
+    * 
+    * @param cornerplace is which corner coordinate that one wants returned
+    * 
+    * @return the nth (cornerplace) corner coordinate of resourcehex(n,w,s)
+    * 
+    * 
+    * @see resourcehex
+    * **/
+  
+  public int[] buildingpoint(int n,int w, int s, int cornerplace){
+    
+    int[] startpoint = new int[2];
+    n+=4;
+    w+=1;
+    
+    // creates a coordinate at the very corner of the hexagon
+    int x =((int) (200 +100*n+s+(cornerplace*7 -7)+50 * Math.sin(cornerplace * 2 * Math.PI / 6)));
+    int y= (int) (200 + 90*w+50 * Math.cos(cornerplace * 2 * Math.PI / 6));
+    
+    startpoint[0]=x;
+    startpoint[1]=y;
+    
+    
+    return startpoint;
+    
+  }
+  
+  //***********************************************************************************************************************
+  
+  
+  //This section casts the gameboard to its beginning position
+  //****************************************************************************************************
+  
+  
+  /**castNodeCoordinates() creates the nodeCoordinate (HashMap<Integer,int[]>), which contains
+    * a values of all the possible coordinates to build settlements on, and Integer assigned 
+    * to each coordinate as a key
+    *
+    * **/
+  public void castNodeCoordinates(){
+    int count=0;
+    for(int x=0;x<3;x++){
+      int[] coordinate = buildingpoint(x,-1,50,1);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    
+    
+    for(int x=0;x<4;x++){
+      int[] coordinate = buildingpoint(x,-1,50,0);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+      
+    }
+    
+    for(int x=0;x<4;x++){
+      int[] coordinate = buildingpoint(x,0,0,1);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    for(int x=0;x<5;x++){
+      int[] coordinate = buildingpoint(x,0,0,0);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    for(int x=0;x<5;x++){
+      int[] coordinate = buildingpoint(x-1,1,50,1);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    for(int x=0;x<6;x++){
+      int[] coordinate = buildingpoint(x-1,1,50,0);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    for(int x=0;x<6;x++){
+      int[] coordinate = buildingpoint(x-1,2,0,1);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    for(int x=0;x<5;x++){
+      int[] coordinate = buildingpoint(x,2,0,0);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    for(int x=0;x<5;x++){
+      int[] coordinate = buildingpoint(x-1,3,50,1);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    for(int x=0;x<4;x++){
+      int[] coordinate = buildingpoint(x,3,50,0);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    for(int x=0;x<4;x++){
+      int[] coordinate = buildingpoint(x,4,0,1);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    
+    for(int x=0;x<3;x++){
+      int[] coordinate = buildingpoint(x+1,4,0,0);
+      nodeCoordinate.put(count,coordinate);
+      count++;
+    }
+    
+  }
+  
+  /**castNodes() creates the
+    * nodeColor  variable (HashMap<Integer,Color>)
+    * at the start
+    * 
+    * nodeColor determines what color each settlement/city is, with each 
+    * settlement/city marked as an Integer
+    * 
+    * **/
+  
+  public void castNodes(){
+    
+    for (int x=0;x<54;x++){
+      isSettlement.put(x,false);
+      isCity.put(x,false);
+      nodeColor.put(x,Color.decode("0xFFDAB9"));
+    }
+  }
+  public void castResourceColors(){
+    
+    gamecolor.put("quarry",Color.RED.darker());
+    gamecolor.put("meadow",Color.GREEN.brighter());
+    gamecolor.put("mountain",Color.GRAY);
+    gamecolor.put("desert",Color.BLACK);
+    gamecolor.put("field",Color.YELLOW);
+    gamecolor.put("forest",Color.GREEN.darker());
+    
+    for (int x =0;x<4;x++){
+      landlist.add("meadow");
+      landlist.add("field");
+      landlist.add("forest");
+    }
+    for(int x =0;x<3;x++){
+      landlist.add("quarry");
+      landlist.add("mountain");
+    }
+    landlist.add("desert");
+    
+    
+    
+  }
+  
+  /**castRobber() partly determines where the robber is at the start
+    * by casting isRobberHere (ArrayList<Boolean>)
+    * 
+    * this function sets all land markers as false, because the robber starts 
+    * out on the desert, and at the present the desert position is unknown.
+    * The final placement of the robber happens in running
+    * 
+    * 
+    * 
+    * @see GameBoard line 105
+    * 
+    * **/
+  public void castRobber(){
+    for(int x=0;x<18;x++){
+      isRobberHere.add(false);
+    }
+  }
+  
+  
+  
+  
+  /** castRollOrder() determines the diceroll numbers that go to each hexagon
+    * these numbers correspond to the dice rolls and determine which
+    * players get resources
+    * 
+    * these numbers are added to rollorder
+    * **/
+  public void castRollOrder(){
+    
+    //this is the typical ordering number that takes place in the game Settlers
+    
+    int[] rollingordering= {5,8,4,2,10,3,11,6,9,11,6,12,3,4,5,9,8,10};
+    
+    //this causes the placement of dicerolls to be partially randomized, while the chain remains the same
+    double randomnumber=Math.random();
+    int starting = (int) (randomnumber*18);
+    
+    
+    for(int x=starting;x<18;x++){
+      rollorder.add(rollingordering[x]);
+    }
+    
+    for(int y=0;y<starting;y++){
+      
+      rollorder.add(rollingordering[y]);
+    }
+  }
+  
+  /**
+   * castPorts() casts the possible strings to ports (ArrayList<String>)
+   * these strings are later drawn on in paint
+   * **/
+  
+  public void castPorts(){
+    
+    
+    for(int x=0;x<4;x++){
+      ports.add("3:1 port");
+      //this happens 4 times, because there are 4 3:1 ports in game
+    }
+    
+    ports.add("wood port");
+    ports.add("brick port");
+    ports.add("ore port");
+    ports.add("wheat port");
+    ports.add("wool port");
+    
+    
+    
+  }
+  
+  /**
+   * castlandresources casts what kind of field correspond with what resource
+   * this data is stored inside landresourcematch (HashMap<String,String>)
+   * 
+   * **/
+  
+  public void castlandresources(){
+    landresourcematch.put("meadow","wool");
+    landresourcematch.put("forest","wood");
+    landresourcematch.put("field","wheat");
+    landresourcematch.put("quarry","brick");
+    landresourcematch.put("mountain","ore");
+    landresourcematch.put("desert","");
+    
+  }
+  
+  
+  /*
+   * castRoadmap() casts all possible road coordinates
+   * the syntax involves the connection between two nodes
+   * this is stored inside roadmap (HashMap<int[],Color>)
+   * later, the a line between one node and the other is drawn, and the
+   * road is the color specified in intance variable "roads"
+   * 
+   * default color is peach, which is the background color as well, making the roads indistinguishable at
+   * the very beginning.
+   * 
+   * 
+   * 
+   * **/
+  public void castRoadmap(){
+    
+    int[] toproads = new int[3];
+    toproads[0]=0;
+    toproads[1]=7;
+    toproads[2]=16;
+    int[] topslantroadnodes=new int[12];
+    int topcount=0;
+    
+    
+    
+    for(int y=3;y<=5;y++){
+      int c=toproads[y-3];
+      for(int z=0;z<y;z++){
+        topslantroadnodes[topcount]=z + c;
+        
+        topcount++;
+      }
+      
+    }
+    
+    int[] toproadsdraw=new int[3];
+    toproadsdraw[0]=0;
+    toproadsdraw[1]=3;
+    toproadsdraw[2]=7;
+    int topdirection=3;
+    int nodecounter=0;
+    int addlittle=-1;
+    
+    for(int x=3;x<=5;x++){
+      addlittle++;
+      for(int z=0;z<x;z++){
+        int[] atob= new int[2];
+        atob[0]=topslantroadnodes[nodecounter];
+        atob[1]=topslantroadnodes[nodecounter]+3+addlittle;
+        roadmap.put(atob,Color.decode("0xFFDAB9"));
+        int[] atoc=new int[2];
+        atoc[0]=topslantroadnodes[nodecounter];
+        atoc[1]=topslantroadnodes[nodecounter]+4+addlittle;
+        roadmap.put(atoc,Color.decode("0xFFDAB9"));
+        nodecounter++;
+      }
+    }
+    
+    
+    int[] toproadsdown = new int[3];
+    toproadsdown[0]=0;
+    toproadsdown[1]=8;
+    toproadsdown[2]=18;
+    int[] topdownroadnodes=new int[15];
+    int topdowncount=0;
+    
+    
+    
+    for(int y=4;y<=6;y++){
+      int c=toproadsdown[y-4];
+      for(int z=0;z<y;z++){
+        topdownroadnodes[topdowncount]=z + c+3;
+        topdowncount++;
+      }
+    }
+    
+    
+    int topstraightcount=0;
+    addlittle=3;
+    
+    
+    for(int i=3;i<6;i++){
+      addlittle++;
+      for(int x=0;x<=i;x++){
+        int[] atob = new int[2];
+        atob[0]=topdownroadnodes[topstraightcount];
+        atob[1]=topdownroadnodes[topstraightcount]+addlittle;
+        roadmap.put(atob,Color.decode("0xFFDAB9"));
+        topstraightcount++;
+        
+      }
+    }
+    
+    
+    int[] bottomroadsslant = new int[3];
+    bottomroadsslant[0]=18;
+    bottomroadsslant[1]=10;
+    bottomroadsslant[2]=0;
+    int[] bottomslantnodes=new int[12];
+    int bottomslantcount=0;
+    
+    
+    
+    for(int y=5;y>=3;y--){
+      int c=bottomroadsslant[y-3];
+      for(int z=0;z<y;z++){
+        bottomslantnodes[bottomslantcount]=z + c+33;
+        bottomslantcount++;
+      }
+    }
+    
+    
+    
+    bottomslantcount=0;
+    addlittle=7;
+    
+    
+    for(int i=5;i>=3;i--){
+      addlittle--;
+      for(int x=0;x<i;x++){
+        int[] atob = new int[2];
+        atob[1]=bottomslantnodes[bottomslantcount];
+        atob[0]=bottomslantnodes[bottomslantcount]-addlittle;
+        roadmap.put(atob,Color.decode("0xFFDAB9"));
+        int[] atoc = new int[2];
+        atoc[1]=bottomslantnodes[bottomslantcount];
+        atoc[0]=bottomslantnodes[bottomslantcount]-addlittle+1;
+        roadmap.put(atoc,Color.decode("0xFFDAB9"));
+        bottomslantcount++;
+        
+      }
+    }
+    
+    int[] bottomroadsdown = new int[2];
+    bottomroadsdown[0]=10;
+    bottomroadsdown[1]=0;
+    int[] bottomdownnodes=new int[9];
+    int bottomdowncount=0;
+    
+    
+    
+    for(int y=5;y>=4;y--){
+      int c=bottomroadsdown[y-4];
+      for(int z=0;z<y;z++){
+        bottomdownnodes[bottomdowncount]=z + c+33;
+        bottomdowncount++;
+      }
+    } 
+    
+    
+    bottomdowncount=0;  
+    addlittle=6;
+    
+    for (int i=5;i>=4;i--){
+      addlittle--;
+      for(int y=0;y<i;y++){
+        int[] atob =new int[2];
+        atob[0]=bottomdownnodes[bottomdowncount];
+        atob[1]=bottomdownnodes[bottomdowncount]+addlittle;
+        roadmap.put(atob,Color.decode("0xFFDAB9"));
+        bottomdowncount++;
+      }
+    }
+    
+    
+    
+    
+    /*castroads() is simply a list of all possible road coordinates
+     * 
+     * these are stored in roads (ArrayList<int[]>)
+     * 
+     * **/
+    
+  }
+  
+  public void castroads(){
+    
+    for (int[] z: roadmap.keySet()){
+      roads.add(z);    
+      
+    }
+    
+  }
+  
+  /*
+   * 
+   * castNoderesources() determine which node is surrounded by which hexagons.
+   * the data is stored inside noderesources<Integer,int[]>, where the value
+   * is an array of the numbered hexagons surrounding noderesources
+   * **/
+  
+  public void castNoderesources(){
+    int nodecount=0;
+    int nodecountupper=3;
+    int addlittle=0;
+    for (int x=nodecount; x<nodecountupper; x++){
+      int[] resourcerolls= new int[1];
+      resourcerolls[0]=nodecount;
+      noderesources.put(nodecount,resourcerolls);
+      nodecount++;
+    }
+    
+    nodecount++;
+    nodecountupper+=3;
+    
+    
+    for (int x=nodecount;x<nodecountupper;x++){
+      int[] resourcerolls= new int[2];
+      resourcerolls[0]=0+addlittle;
+      resourcerolls[1]=1+addlittle;
+      noderesources.put(nodecount,resourcerolls);
+      nodecount++;
+      addlittle++;
+    }
+    
+    addlittle=0;
+    nodecount+=2; 
+    nodecountupper+=4;
+    
+    
+    
+    for (int x=nodecount;x<nodecountupper;x++){
+      int[] resourcerolls= new int[3];
+      resourcerolls[0]=0+addlittle;
+      resourcerolls[1]=1+addlittle;
+      resourcerolls[2]=4+addlittle;
+      noderesources.put(nodecount,resourcerolls);
+      
+      nodecount++;
+      addlittle++;
+    }
+    
+    addlittle=0;
+    nodecount+=2; 
+    nodecountupper+=5;
+    
+    
+    for (int x=nodecount;x<nodecountupper;x++){
+      int[] resourcerolls= new int[3];
+      resourcerolls[0]=0+addlittle;
+      resourcerolls[1]=3+addlittle;
+      resourcerolls[2]=4+addlittle;
+      noderesources.put(nodecount,resourcerolls);
+      nodecount++;
+      addlittle++;
+    }
+    
+    
+    
+    addlittle=0;
+    nodecount+=2; 
+    nodecountupper+=5;
+    
+    
+    for (int x=nodecount;x<nodecountupper;x++){
+      int[] resourcerolls= new int[3];
+      resourcerolls[0]=3+addlittle;
+      resourcerolls[1]=4+addlittle;
+      resourcerolls[2]=8+addlittle;
+      noderesources.put(nodecount,resourcerolls);
+      nodecount++;
+      addlittle++;
+    }
+    
+    
+    addlittle=0;
+    nodecount+=2; 
+    nodecountupper+=6;
+    
+    
+    for (int x=nodecount;x<nodecountupper;x++){
+      int[] resourcerolls= new int[3];
+      resourcerolls[0]=3+addlittle;
+      resourcerolls[1]=7+addlittle;
+      resourcerolls[2]=8+addlittle;
+      noderesources.put(nodecount,resourcerolls);
+      nodecount++;
+      addlittle++;
+    }
+    
+    
+    addlittle=0;
+    nodecount+=2; 
+    nodecountupper+=6;
+    
+    
+    for (int x=nodecount;x<nodecountupper;x++){
+      int[] resourcerolls= new int[3];
+      resourcerolls[0]=7+addlittle;
+      resourcerolls[1]=8+addlittle;
+      resourcerolls[2]=12+addlittle;
+      noderesources.put(nodecount,resourcerolls);
+      nodecount++;
+      addlittle++;
+    }
+    
+    
+    
+    
+    addlittle=0;
+    nodecount+=2; 
+    nodecountupper+=5;
+    
+    
+    for (int x=nodecount;x<nodecountupper;x++){
+      int[] resourcerolls= new int[3];
+      resourcerolls[0]=8+addlittle;
+      resourcerolls[1]=12+addlittle;
+      resourcerolls[2]=13+addlittle;
+      noderesources.put(nodecount,resourcerolls);
+      nodecount++;
+      addlittle++;
+    }
+    
+    addlittle=0;
+    nodecount+=2; 
+    nodecountupper+=5;
+    
+    
+    for (int x=nodecount;x<nodecountupper;x++){
+      int[] resourcerolls= new int[3];
+      resourcerolls[0]=12+addlittle;
+      resourcerolls[1]=13+addlittle;
+      resourcerolls[2]=16+addlittle;
+      noderesources.put(nodecount,resourcerolls);
+      nodecount++;
+      addlittle++;
+    }
+    
+    addlittle=0;
+    nodecount+=2; 
+    nodecountupper+=4;
+    
+    
+    for (int x=nodecount;x<nodecountupper;x++){
+      int[] resourcerolls= new int[3];
+      resourcerolls[0]=13+addlittle;
+      resourcerolls[1]=16+addlittle;
+      resourcerolls[2]=17+addlittle;
+      noderesources.put(nodecount,resourcerolls);
+      nodecount++;
+      addlittle++;
+    }
+    
+    
+    addlittle=0;
+    nodecount+=2; 
+    nodecountupper+=4;
+    
+    
+    for (int x=nodecount;x<nodecountupper;x++){
+      int[] resourcerolls= new int[2];
+      resourcerolls[0]=16+addlittle;
+      resourcerolls[1]=17+addlittle;
+      noderesources.put(nodecount,resourcerolls);
+      nodecount++;
+      addlittle++;
+    }
+    
+    
+    
+    int[] sidearray= new int[10];
+    sidearray[0]=0;
+    sidearray[1]=2;
+    sidearray[2]=3;
+    sidearray[3]=6;
+    sidearray[4]=7;
+    sidearray[5]=11;
+    sidearray[6]=12;
+    sidearray[7]=15;
+    sidearray[8]=16;
+    sidearray[9]=18;
+    
+    
+    int[] topnumberws= new int[6];
+    topnumberws[0]=3;
+    topnumberws[1]=6;
+    topnumberws[2]=11;
+    topnumberws[3]=15;
+    topnumberws[4]=21;
+    topnumberws[5]=26;
+    
+    
+    int[] bottomnumberws = new int[6];
+    bottomnumberws[0]=27;
+    bottomnumberws[1]=32;
+    bottomnumberws[2]=38;
+    bottomnumberws[3]=42;
+    bottomnumberws[4]=47;
+    bottomnumberws[5]=50;
+    
+    int[] exmarker= new int[1];
+    exmarker[0]=16;
+    noderesources.put(51,exmarker);
+    int[] rexmarker= new int[1];
+    rexmarker[0]= 17;
+    noderesources.put(52,rexmarker);
+    int[] lexmarker= new int[1];
+    lexmarker[0]= 18;
+    noderesources.put(53,lexmarker);
+    
+    for (int x=0;x<6;x++){
+      int[] topsinglevalue= new int[1];
+      int[] bottomsinglevalue= new int[1];
+      
+      topsinglevalue[0]=sidearray[x];
+      bottomsinglevalue[0]=sidearray[x+4];
+      
+      noderesources.put(topnumberws[x],topsinglevalue);
+      noderesources.put(bottomnumberws[x],bottomsinglevalue);
+      
+      
+      
+    }
+    
+    int[] thirdnumbers = new int[8];
+    thirdnumbers[0]=7;
+    thirdnumbers[1]=10;
+    thirdnumbers[2]=16;
+    thirdnumbers[3]=20;
+    thirdnumbers[4]=33;
+    thirdnumbers[5]=37;
+    thirdnumbers[6]=43;
+    thirdnumbers[7]=46;
+    
+    
+    for(int x=0; x<8;x++){
+      int[] doublevalue=new int[2];
+      doublevalue[0]=sidearray[x];
+      doublevalue[1]=sidearray[x+2];
+      
+      noderesources.put(thirdnumbers[x],doublevalue);
+      
+      
+    }
+    
+    
+  }
+  
+  /*
+   * castnodeports() signals which nodes have access to a port
+   * so player can use for trading
+   * the data is stored inside nodeports(ArrayList<int[]>)
+   * 
+   * **/
+  
+  
+  public void castnodeports(){
+    
+    int[] portone = {0,3};
+    int[] porttwo= {1,5};
+    int[] portthree= {6,10};
+    int[] portfive= {26,32};
+    int[] portseven={42,46};
+    int[] portnine={49,53};
+    int[] porteight={47,51};
+    int[] portsix= {33,38};
+    int[] portfour={16,21};
+    
+    
+    
+    nodeports.add(portone);
+    nodeports.add(porttwo);
+    nodeports.add(portthree);
+    nodeports.add(portfour);
+    nodeports.add(portfive);
+    nodeports.add(portsix);
+    nodeports.add(portseven);
+    nodeports.add(porteight);
+    nodeports.add(portnine);
+    
+    
+    
+  }
+  
+  /* colorcast() creates  helpful dictionary
+   * that matches a color string with a Color
+   * 
+   * **/
+  public void colorcast(){
+    coloroptions.put("orange",Color.ORANGE);
+    coloroptions.put("white",Color.WHITE);
+    coloroptions.put("red",Color.RED);
+    coloroptions.put("cyan",Color.CYAN);
+    
+  }
+  
+  //*****************************************************************************************************************
+  //Everything below paints the board, and signals whether to create a structures(cities,roads,settlements,etc.)
+  
+  
+  
+  public void paint(Graphics blah){
+    Graphics2D g=(Graphics2D) blah;
+    super.paint(g);
+    //these lines create the background
+    g.setColor(Color.YELLOW);
+    g.fillRect(0,0,getWidth(),getHeight());
+    g.setColor(Color.decode("0xFFDAB9"));
+    g.fillRect(400,100,800,750); 
+    int resourcecount=0;
+    
+    // this draws resource hexagons
+    for(int x=1;x<4;x++){
+      Polygon f = resourcehex(x,0,0);
+      
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(gamecolor.get(landlist.get(resourcecount)));
+      resourcecount++;
+      g.fillPolygon(f);
+    }
+    for(int x=0;x<4;x++){
+      Polygon f = resourcehex(x,1,50);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(gamecolor.get(landlist.get(resourcecount)));
+      resourcecount++;
+      g.fillPolygon(f);
+    }
+    for(int x=0;x<5;x++){
+      Polygon f = resourcehex(x,2,0);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(gamecolor.get(landlist.get(resourcecount)));
+      resourcecount++;
+      g.fillPolygon(f);
+    }
+    for(int x=0;x<4;x++){
+      Polygon f = resourcehex(x,3,50);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(gamecolor.get(landlist.get(resourcecount)));
+      resourcecount++;
+      g.fillPolygon(f);
+    }
+    for(int x=1;x<4;x++){
+      Polygon f = resourcehex(x,4,0);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(gamecolor.get(landlist.get(resourcecount)));
+      resourcecount++;
+      g.fillPolygon(f);
+    }
+    
+    
+    //This draws the ocean and port hexagons
+    for(int x=0;x<4;x++){
+      Polygon f = resourcehex(x,-1,50);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(Color.BLUE);
+      g.fillPolygon(f);
+    }
+    
+    for(int x=0;x<2;x++){
+      Polygon f = resourcehex(0,0,x*400);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(Color.BLUE);
+      g.fillPolygon(f);
+    }
+    for(int x=0;x<2;x++){
+      Polygon f = resourcehex(0,1,-50 + x*500);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(Color.BLUE);
+      g.fillPolygon(f);
+    }
+    for(int x=0;x<2;x++){
+      Polygon f = resourcehex(0,2,-100+ x*600);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(Color.BLUE);
+      g.fillPolygon(f);
+    }
+    for(int x=0;x<2;x++){
+      Polygon f = resourcehex(0,3,-50+ x*500);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(Color.BLUE);
+      g.fillPolygon(f);
+    }
+    for(int x=0;x<2;x++){
+      Polygon f = resourcehex(0,4,0 + x*400);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(Color.BLUE);
+      g.fillPolygon(f);
+    }
+    for(int x=0;x<4;x++){
+      Polygon f = resourcehex(x,5,50);
+      g.setColor(Color.BLACK);
+      g.drawPolygon(f);
+      g.setColor(Color.BLUE);
+      g.fillPolygon(f);
+    }
+    
+    
+    
+    
+    //This is for drawing dice rolls numbers
+    
+    int dicecount =0;
+    
+    for(int x =1;x<4;x++){
+      int[] circleplace= midpoint(x,0,0);
+      g.setColor(Color.BLACK);
+      g.drawOval(circleplace[0]-15,circleplace[1]-15,30,30);
+      g.setColor(Color.WHITE);
+      g.fillOval(circleplace[0]-15,circleplace[1]-15,30,30);
+      g.setColor(Color.BLACK);
+      
+      if (resourcenumbersOn){
+        g.drawString(String.valueOf(new Integer(dicecount)),circleplace[0]-5,circleplace[1]+5);
+      }
+      else{
+        g.drawString(String.valueOf(new Integer(rollorder.get(dicecount))),circleplace[0]-5,circleplace[1]+5);
+      }
+      if (isRobberHere.get(dicecount)){
+        g.drawString("X",circleplace[0],circleplace[1]);
+      }
+      dicecount++;
+    }
+    for(int x=0;x<4;x++){
+      int[] circleplace= midpoint(x,1,50);
+      g.setColor(Color.BLACK);
+      g.drawOval(circleplace[0]-15,circleplace[1]-15,30,30);
+      g.setColor(Color.WHITE);
+      g.fillOval(circleplace[0]-15,circleplace[1]-15,30,30);
+      g.setColor(Color.BLACK);
+      if (resourcenumbersOn){
+        g.drawString(String.valueOf(new Integer(dicecount)),circleplace[0]-5,circleplace[1]+5);
+      }
+      else{
+        g.drawString(String.valueOf(new Integer(rollorder.get(dicecount))),circleplace[0]-5,circleplace[1]+5);
+      }
+      if (isRobberHere.get(dicecount)){
+        g.drawString("X",circleplace[0],circleplace[1]);
+      }
+      dicecount++;
+    }
+    for(int x=0;x<5;x++){
+      int[] circleplace= midpoint(x,2,0);
+      g.setColor(Color.BLACK);
+      g.drawOval(circleplace[0]-15,circleplace[1]-15,30,30);
+      g.setColor(Color.WHITE);
+      g.fillOval(circleplace[0]-15,circleplace[1]-15,30,30);
+      g.setColor(Color.BLACK);
+      if (resourcenumbersOn){
+        g.drawString(String.valueOf(new Integer(dicecount)),circleplace[0]-5,circleplace[1]+5);
+      }
+      else{
+        g.drawString(String.valueOf(new Integer(rollorder.get(dicecount))),circleplace[0]-5,circleplace[1]+5);
+      }
+      if (isRobberHere.get(dicecount)){
+        g.drawString("X",circleplace[0],circleplace[1]);
+      }
+      dicecount++;
+    }
+    for(int x=0;x<4;x++){
+      int[] circleplace= midpoint(x,3,50);
+      g.setColor(Color.BLACK);
+      g.drawOval(circleplace[0]-15,circleplace[1]-15,30,30);
+      g.setColor(Color.WHITE);
+      g.fillOval(circleplace[0]-15,circleplace[1]-15,30,30);
+      g.setColor(Color.BLACK);
+      if (resourcenumbersOn){
+        g.drawString(String.valueOf(new Integer(dicecount)),circleplace[0]-5,circleplace[1]+5);
+      }
+      else{
+        g.drawString(String.valueOf(new Integer(rollorder.get(dicecount))),circleplace[0]-5,circleplace[1]+5);
+      }
+      if (isRobberHere.get(dicecount)){
+        g.drawString("X",circleplace[0],circleplace[1]);
+      }
+      dicecount++;
+    }
+    for(int x=1;x<4;x++){
+      int[] circleplace= midpoint(x,4,0);
+      g.setColor(Color.BLACK);
+      g.drawOval(circleplace[0]-15,circleplace[1]-15,30,30);
+      g.setColor(Color.WHITE);
+      g.fillOval(circleplace[0]-15,circleplace[1]-15,30,30);
+      g.setColor(Color.BLACK);
+      if (resourcenumbersOn){
+        g.drawString(String.valueOf(new Integer(dicecount)),circleplace[0]-5,circleplace[1]+5);
+      }
+      else{
+        g.drawString(String.valueOf(new Integer(rollorder.get(dicecount))),circleplace[0]-5,circleplace[1]+5);
+      }
+      if (isRobberHere.get(dicecount)){
+        g.drawString("X",circleplace[0],circleplace[1]);
+      }
+      dicecount++;
+    }
+    
+    
+    //this draws in the ports on the ocean
+    
+    for(int x=0;x<2;x++){
+      int[] rectplace = midpoint(x*2,-1,50);
+      g.setColor(Color.BLACK);
+      g.drawRect(rectplace[0]-30,rectplace[1]-15,60,30);
+      g.setColor(Color.WHITE);
+      g.fillRect(rectplace[0]-30,rectplace[1]-15,60,30);
+      g.setColor(Color.BLACK);
+      g.drawString(ports.get(x),rectplace[0]-30,rectplace[1]);
+      
+    }
+    
+    int[] secondrowrectplace= midpoint(0,0,400);
+    g.setColor(Color.BLACK);
+    g.drawRect(secondrowrectplace[0]-30,secondrowrectplace[1]-15,60,30);
+    g.setColor(Color.WHITE);
+    g.fillRect(secondrowrectplace[0]-30,secondrowrectplace[1]-15,60,30);
+    g.setColor(Color.BLACK);
+    g.drawString(ports.get(2),secondrowrectplace[0]-30,secondrowrectplace[1]+5);
+    
+    int[] thirdrowrectplace= midpoint(0,1,-50);
+    g.setColor(Color.BLACK);
+    g.drawRect(thirdrowrectplace[0]-30,thirdrowrectplace[1]-15,60,30);
+    g.setColor(Color.WHITE);
+    g.fillRect(thirdrowrectplace[0]-30,thirdrowrectplace[1]-15,60,30);
+    g.setColor(Color.BLACK);
+    g.drawString(ports.get(3),thirdrowrectplace[0]-30,thirdrowrectplace[1]+5);
+    
+    int[] fourthrowrectplace= midpoint(0,2,500);
+    g.setColor(Color.BLACK);
+    g.drawRect(fourthrowrectplace[0]-30,fourthrowrectplace[1]-15,60,30);
+    g.setColor(Color.WHITE);
+    g.fillRect(fourthrowrectplace[0]-30,fourthrowrectplace[1]-15,60,30);
+    g.setColor(Color.BLACK);
+    g.drawString(ports.get(4),fourthrowrectplace[0]-30,fourthrowrectplace[1]+5);
+    
+    int[] fifthrowrectplace= midpoint(0,3,-50);
+    g.setColor(Color.BLACK);
+    g.drawRect(fifthrowrectplace[0]-30,fifthrowrectplace[1]-15,60,30);
+    g.setColor(Color.WHITE);
+    g.fillRect(fifthrowrectplace[0]-30,fifthrowrectplace[1]-15,60,30);
+    g.setColor(Color.BLACK);
+    g.drawString(ports.get(5),fifthrowrectplace[0]-30,fifthrowrectplace[1]+5);
+    
+    
+    int[] sixthrowrectplace= midpoint(0,4,400);
+    g.setColor(Color.BLACK);
+    g.drawRect(sixthrowrectplace[0]-30,sixthrowrectplace[1]-15,60,30);
+    g.setColor(Color.WHITE);
+    g.fillRect(sixthrowrectplace[0]-30,sixthrowrectplace[1]-15,60,30);
+    g.setColor(Color.BLACK);
+    g.drawString(ports.get(6),sixthrowrectplace[0]-30,sixthrowrectplace[1]+5);
+    
+    
+    
+    
+    
+    
+    for(int x=0;x<2;x++){
+      Polygon f = resourcehex(x*2,5,50);
+      int[] rectplace = midpoint(x*2,5,50);
+      g.setColor(Color.BLACK);
+      g.drawRect(rectplace[0]-30,rectplace[1]-15,60,30);
+      g.setColor(Color.WHITE);
+      g.fillRect(rectplace[0]-30,rectplace[1]-15,60,30);
+      g.setColor(Color.BLACK);
+      g.drawString(ports.get(x+7),rectplace[0]-30,rectplace[1]);
+    }
+    
+    //This draws the roads
+    if (roadsOn){
+      for (int x=0;x<roadmap.size();x++){
+        g.setStroke(new BasicStroke(3));
+        for(int[] z: roads){
+          g.setColor(roadmap.get(z));
+          g.drawLine(nodeCoordinate.get(z[0])[0]+7,nodeCoordinate.get(z[0])[1]+7,nodeCoordinate.get(z[1])[0]+7,nodeCoordinate.get(z[1])[1]+7);//
+        }
+      }
+      //This draws the city/settlements
+      for (int x=0; x<nodeCoordinate.size();x++){
+        g.setColor(Color.BLACK);
+        g.drawRect(nodeCoordinate.get(x)[0],nodeCoordinate.get(x)[1],15,15);
+        g.setColor(nodeColor.get(x));
+        g.fillRect(nodeCoordinate.get(x)[0]+1,nodeCoordinate.get(x)[1]+1,14,14);
+        g.setColor(Color.BLACK);
+        if(numbersOn){
+          g.drawString(String.valueOf(x),nodeCoordinate.get(x)[0],nodeCoordinate.get(x)[1]+10);
+        }
+        if(isCity.get(x)){
+          g.drawString("C",nodeCoordinate.get(x)[0],nodeCoordinate.get(x)[1]+10);
+        }
+      }
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+    }
+    
+  }
+  
+  //****************************************************************************************************************
+  //This section covers the building of settlements, roads, buildings, etc. due to game dynamics
+  //********************************************************************************************************
+  //This section covers the building of a settlement
+  /** addSettlement(Player a) builds a settlement on the Gameboard of Player a's color and choice
+    * 
+    * @param Player a whose turn it is
+    * 
+    * @return whether the settlement was successful or not
+    * **/
+  
+  
+  public boolean addSettlement(Player a){
+    //this section lets player a pick where he wants to build the settlement
+    numbersOn=true;
+    repaint();
+    boolean validnumber=false;
+    int nodeChosen=-1;
+    //this loops through until a valid number is taken
+    while(!validnumber){
+      String nodeChosenString= JOptionPane.showInputDialog(this,a.getName()+", Input the node number you want to build your settlement on");
+      
+      try{
+        nodeChosen= Integer.parseInt(nodeChosenString);
+        validnumber=true;
+      }
+      catch(NumberFormatException ex){}
+    }
+    
+    
+    //this section checks for validity of player a's choice
+    //settlement must exist between 0 and 53 inclusive
+    if (nodeChosen<0 || nodeChosen>53){
+      JOptionPane.showMessageDialog(this, "Not a valid settlement","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      return false;
+      
+    }
+    //node chosen must not already have a settlement or city on it
+    else if ((isSettlement.get(nodeChosen))){
+      JOptionPane.showMessageDialog(this, "There is already a settlement or city here","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      //turns off numbers and repaints
+      numbersOn=false;
+      repaint();
+      return false;
+    }
+    //node chosen must be at least 2 roads away from all other settlements
+    else if (tooclose(nodeChosen)){
+      JOptionPane.showMessageDialog(this, "You must be at least 2 roads away from every other settlement to build a settlement","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      //turns off numbers and repaints
+      numbersOn=false;
+      repaint();
+      return false;
+    }
+    //settlement must be connected to a road the player has
+    else if (!(roadconnection(nodeChosen,a))){
+      
+      JOptionPane.showMessageDialog(this, "You must have a road connecting to this settlement","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      //turns off numbers and repaints
+      numbersOn=false;
+      repaint();
+      return false;
+    }
+    //if all conditions are satisifed, the settlement is built
+    else{
+      //isSettlement for nodechosen is now true
+      isSettlement.put(nodeChosen,true);
+      //sets color of node box to player's color
+      nodeColor.put(nodeChosen,a.getColor());
+      //settlement is added to player a's list of settlements
+      a.addplayerSettlement(nodeChosen);
+      
+      //checks if player unlocks a port with the settlement building
+      
+      for (int i=0; i<9;i++){
+        for (int u=0;u<nodeports.get(i).length;u++){
+          if (nodeChosen==nodeports.get(i)[u]){
+            a.addPort(ports.get(i));
+          }
+          
+        }
+        
+        
+      }
+      //turns off numbers and repaints
+      numbersOn=false;
+      repaint();
+      
+      return true;
+      
+    }
+    //turns off numbers and repaints
+    
+    
+  }
+  
+  //***********************************************************************************************************
+  //This section is a series of test to check if the number chosen in addSettlement was valid
+  
+  /*
+   * nodeDistance() calculates the distance between two nodes
+   * this is done in order to make sure settlements are at least two roads apart
+   * 
+   * @param integer a, which represents one node
+   * 
+   * @param integer b, which represents the other node
+   * 
+   * @return double that signifies the distance between the two nodes
+   * 
+   * **/
+  public double nodeDistance(int a, int b){
+    
+    int[] apoint= nodeCoordinate.get(a);
+    int[] bpoint= nodeCoordinate.get(b);
+    
+    int x= apoint[0]-bpoint[0];
+    int xsquared=x*x;
+    int y= apoint[1]-bpoint[1];
+    int ysquared=y*y;
+    
+    
+    
+    double distance = Math.sqrt(xsquared + ysquared);
+    
+    
+    
+    return distance;
+    
+  }
+  
+  /*tooclose(int settlementchosen) calculates whether a hypothetical newly built settlement is too close
+   * to the other settlement
+   * 
+   * @param integer of the node chosen
+   * 
+   * @returns whether the settlement is too close to another settlement or not
+   * 
+   * 
+   * 
+   * **/
+  
+  public boolean tooclose(int settlementchosen){
+    
+    for (int x=0;x<isSettlement.size();x++){
+      //access isSettlement, which states whether a boolean exists at a node or not
+      if (isSettlement.get(x)){
+        if (nodeDistance(settlementchosen,x)<100){
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  
+  
+  /* roadconnection(int node, Player a) determines whether a Player has a road
+   * connected to the settlement or not.
+   * Otherwise, settlement building is illegal
+   * 
+   * @param int node which is the node chosen to build a settlement on
+   * 
+   * @param Player a, which is the player that want to build the node
+   * 
+   * @returns whether a road connects a player to a settlement or not
+   * @see getplayerRoad
+   * 
+   * **/
+  public boolean roadconnection(int node, Player a){
+    for (int[] z: a.getplayerRoad()){
+      for(int i=0;i<z.length;i++){
+        if (z[i]==node){
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  
+  //************************************************************************************************************************8
+  //This section covers the building of a city
+  
+  
+  
+  /* addCity(Player a) takes one of Player a's existing settlements, and turns it into a city
+   * 
+   * @param Player a that is creating the city
+   * 
+   * @return whether the city building was succesfull or not
+   * **/
+  public boolean addCity(Player a){
+    //lets Player a choose where he wants to build a city
+    numbersOn=true;
+    boolean validnumber=false;
+    int nodeChosen=-1;
+    repaint();
+    
+    
+    //makes sure Player a's input is a valid integer
+    while(!validnumber){
+      String nodeChosenString= JOptionPane.showInputDialog(this,a.getName()+", Input the node number you want to build your City on");
+      
+      try{
+        nodeChosen= Integer.parseInt(nodeChosenString);
+        validnumber=true;
+      }
+      catch(NumberFormatException ex){}
+    }
+    
+    //checks to see if Player a has a settlement at the node chosen
+    if (!(a.getSettlementlist().contains(nodeChosen))){
+      JOptionPane.showMessageDialog(this, "You don't have a settlement here","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      numbersOn=false;
+      repaint();
+      return false;
+      
+    }
+    
+    //allows player to add a city
+    else{
+      //inputs that a city exists at the node in isCity
+      isCity.put(nodeChosen,true);
+      //adds node to Player a's list of cities
+      a.addplayerCity(nodeChosen);
+      return true;
+    }
+    
+  }
+  //****************************************************************************************************************88
+  //this section covers the building of a road
+  
+  /*addRoad(Player a) creates a road on the gameboard of Player a's color
+   * 
+   * @param Player a player whose adding the road
+   * 
+   * @return whether adding the road was succesful
+   * 
+   * */
+  
+  public boolean addRoad(Player a){
+    
+    //asks for where the Player wants to build a road
+    numbersOn=true;
+    repaint();
+    boolean validnumber=false;
+    boolean validnumbertwo=false;
+    int roadstart=-1;
+    int roadfinish=-1;
+    // makes sure that the input that player inputs are valid numbers************
+    while(!validnumber){
+      String roadstartinput= JOptionPane.showInputDialog(this,a.getName()+", Input the node number you want to start your road on ");
+      
+      try{
+        
+        
+        roadstart = Integer.valueOf(roadstartinput);
+        validnumber=true;
+      }
+      catch(NumberFormatException ex){}
+      
+    }
+    while(!validnumbertwo){
+      String roadfinishinput= JOptionPane.showInputDialog(this,a.getName()+", Input the node number you want to finish your road on");
+      
+      try{
+        roadfinish = Integer.valueOf(roadfinishinput);
+        validnumbertwo=true;
+      }
+      catch(NumberFormatException ex){}
+      
+    }
+    
+    //******************************************************************************
+    
+    //formats the created in[] that signifies roadcoordinate, so the lower number is first
+    int[] roadcoordinate = new int[2];
+    if (roadstart<roadfinish){
+      roadcoordinate[0]=roadstart;
+      roadcoordinate[1]=roadfinish;
+    }
+    else{
+      roadcoordinate[0]=roadfinish;
+      roadcoordinate[1]=roadstart;
+    }
+    
+    //checks to make sure the road created is valid
+    if (!(checkforRoadValidity(roadcoordinate))){
+      
+      
+      JOptionPane.showMessageDialog(this, "Not a valid road coordinate","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      //turns off numbers and repaints
+      numbersOn=false;
+      repaint();
+      return false;
+      
+    }
+    //check to see if this road connects to another road of the player
+    else if(!(checkforRoadConnection(a,roadcoordinate))){
+      JOptionPane.showMessageDialog(this, "You do not have a road connected here","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      //turns off numbers and repaints
+      numbersOn=false;
+      repaint();
+      return false;
+      
+    }
+    //check to see if this road is not already taken
+    else if (checkforRoadTaken(roadcoordinate)){
+      JOptionPane.showMessageDialog(this, "This road is already taken","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      //turns off numbers and repaints
+      numbersOn=false;
+      repaint();
+      return false;
+    }
+    //check to see if this road is not interrupted by another settlement
+    else if (settlementinterruption(a,checkforRoadConnectionPlace(a,roadcoordinate))){
+      JOptionPane.showMessageDialog(this, "A settlement is in the way","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      //turns off numbers and repaints
+      numbersOn=false;
+      repaint();
+      return false;
+    }
+    //allows player to add road
+    else{
+      a.addplayerRoad(roadcoordinate);
+      for (int[] z: roads){
+        
+        if (z[0]==roadcoordinate[0] && z[1]==roadcoordinate[1]){
+          roadmap.put(z,a.getColor());
+          repaint();
+          
+        }
+      }
+      
+      //turns off numbers and repaints
+      numbersOn=false;
+      repaint();
+      return true;
+    }
+    
+  }
+  
+  
+  /* checkforRoadValidity(int[] x) makes sure that the {node,node} chosen is a valid road
+   * 
+   * 
+   * @param int[] x, which is the hypothetical chosen road coordinate
+   * 
+   * @returns whether int[] x can possibly be a road coordinate
+   * **/
+  public boolean checkforRoadValidity(int[] x){
+    for (int[] z: roads){
+      
+      if (z[0]==x[0] && z[1]==x[1]){
+        return true;
+      }
+    }
+    return false;
+    
+  }
+  
+  /* checkforRoadConnection(Player a, int[] z) makes sure that the hypothetical road chosen
+   * connects to one of Player a's existing roads
+   * 
+   * @param Player a, the player creating the road
+   * 
+   * @param int[] z, the road that Player a chose
+   * 
+   * 
+   * @returns whether the road connects to one of a's existing roads or not
+   * **/
+  public boolean checkforRoadConnection(Player a, int[] z){
+    
+    for (int[] x : a.getplayerRoad()){
+      for (int i : x){
+        if (z[0]==i || z[1]==i){
+          return true;
+        }
+      }
+    }
+    return false;
+    
+  }
+  /*checkforRoadTaken(int[] z) makes sure that the road isn't already taken
+   * 
+   * @param int[] z, the hypothetical chosen road
+   * 
+   * @returns whether or not this road coordinate is picked by a player
+   * ***/
+  
+  public boolean checkforRoadTaken(int[] z){
+    
+    for(int[] i: roads){
+      if (z[0]==i[0] && z[1]==i[1]){
+        
+        if (roadmap.get(i).equals(Color.decode("0xFFDAB9"))){
+          return false;
+        }
+        
+      }
+    }
+    return true; 
+  }
+  
+  /*checkforRoadConnectionPlace(Player a,int[] z) returns where the road is connected from for a player
+   * this is important for checking for settlement interruption
+   * 
+   * @param Player a, the player creating a road
+   * 
+   * @param int[] z, the hypothetical chosen road
+   * 
+   * @returns the integer node where player a's pre-existing road and the new road connects.
+   * 
+   * **/
+  
+  
+  public int checkforRoadConnectionPlace(Player a, int[] z){
+    
+    for (int[] x : a.getplayerRoad()){
+      for (int i : x){
+        if (z[0]==i){
+          return i;
+        }
+        if (z[1]==i){
+          return i;
+        }
+      }
+    }
+    return -1;
+    
+  }
+  
+  /* settlementinterruption(Player a, int roadstart) returns whether a road that is created is blocked by 
+   * another settlement or not
+   * 
+   * 
+   * @param Player a, the player that is creating the road
+   * 
+   * @param int roadstart, the node where the road starts at
+   * 
+   * 
+   * @returns whether or not that settlement is interrupted by another player's settlement
+   * 
+   * **/
+  public boolean settlementinterruption(Player a, int roadstart){
+    if (isSettlement.get(roadstart) && !a.getSettlementlist().contains(roadstart)){
+      return true;
+    }
+    
+    else{
+      return false;
+    }
+  }
+  
+  //***********************************************************************************************************
+  //This section covers simple trading errors
+  
+  
+  /*unfairtrade() pulls up a popup that states whether a "trade"
+   * is actually a player giving free resources, which is unfair
+   * 
+   * **/
+  public void unfairtrade(){
+    JOptionPane.showMessageDialog(this,"Trade is unfair.Both players must offer resources","Illegal Move",JOptionPane.ERROR_MESSAGE);
+  }
+  
+  /* invalidtrade pulls up a popup if a player wants to bank items, but the
+   * resources the player wants to bank are not the same
+   * **/
+  public void invalidtrade(){
+    JOptionPane.showMessageDialog(this,"All resources must be the same for bank to accept resources","Illegal Move",JOptionPane.ERROR_MESSAGE);
+  }
+  
+  //************************************************************************************************************8
+  
+  /*moveRobber(Player currentplayer,Player b,Player c,Player d) moves the robber, which happens whenever a 7 is rolled, or a knight is played
+   * 
+   * @param Player currentplayer is the player that is moving the robber
+   * 
+   * @param Player b, c, and d are the other players
+   * 
+   * 
+   * **/
+  
+  
+  
+  
+  public void moveRobber(Player currentplayer, Player b, Player c, Player d){
+    //makes sure that player enters a valid number
+    boolean validnumber=false;
+    boolean validnumbertwo=false;
+    int inputnumber=-1;
+    resourcenumbersOn=true;
+    repaint();
+    String input="";
+    //makes sure a valid number is accepted, and that the robber is moved to another hexagon
+    while(!validnumber){
+      input=JOptionPane.showInputDialog(this,"Select the hexagon you want to move the robber to");
+      
+      try{
+        inputnumber = Integer.valueOf(input);
+        if (inputnumber==isRobberHere.indexOf(true)){
+          JOptionPane.showMessageDialog(this,"Robber is already here","Illegal Move",JOptionPane.ERROR_MESSAGE);
+          
+          
+        }
+        else{
+          validnumber=true;
+        }
+      }
+      catch(NumberFormatException ex){}
+    }
+    
+    
+    
+    //resets isRobberHere to robber's new corresponding position
+    for (int x=0;x<isRobberHere.size();x++){
+      isRobberHere.set(x,false);
+    }
+    
+    isRobberHere.set(inputnumber,true);
+    
+    resourcenumbersOn=false;
+    repaint();
+    
+    
+    //determines which settlements/cities are blocked by robber
+    
+    int[] blocked = new int[6];
+    int blockcount=0;
+    
+    for (int z=0; z<54;z++){
+      int[] value=noderesources.get(z);
+      for(int i=0;i<value.length;i++){
+        if (value[i]==inputnumber){
+          blocked[blockcount]=z;
+          blockcount++;
+          
+        }
+      }
+    }
+    
+    robberblocked=blocked;
+    
+    
+    //steals a card from player
+    
+    
+    ArrayList<Player> posstheftvictims= new ArrayList<Player>(3);
+    if (hasSettlementHere(b,robberblocked)){
+      posstheftvictims.add(b);
+    }
+    if (hasSettlementHere(c,robberblocked)){
+      posstheftvictims.add(c);
+    }  
+    
+    if (hasSettlementHere(d,robberblocked)){
+      posstheftvictims.add(d);
+    }
+    
+    
+    if (allpoor(posstheftvictims)){
+    }
+    else{
+      //determines what to display for which player to steal from
+      String theftvictimdisplay="";
+      for (int i=0;i<posstheftvictims.size();i++){
+        theftvictimdisplay+=posstheftvictims.get(i).getName() + " ";
+        
+        
+      }
+      
+      //does nothing if there are no players to steal from
+      if (posstheftvictims.size()==0){
+      }
+      else{
+        //else, asks currentplayer which player he/she wants to steal from, and makes sure the player stolen from is valid
+        String stealsfrom="";
+        boolean validplayer=false;
+        
+        
+        while(!validplayer){
+          stealsfrom=JOptionPane.showInputDialog(this, "("+theftvictimdisplay +")" +"Select the player you want to steal from");
+          if (!(checkifPossibletheft(posstheftvictims,stealsfrom))){
+            JOptionPane.showMessageDialog(this,"The inputted player can not be stolen from, or is not a valid player","Illegal Move",JOptionPane.ERROR_MESSAGE);
+            
+          }
+          else{
+            validplayer=true;
+          }
+        }
+        
+        
+        Player chosen=currentplayer;
+        //makes sure that the String/name chosen corresponds with the right player
+        for(Player s: posstheftvictims){
+          if(s.getName().equals(stealsfrom)){
+            if (s.resourcelength()==0){
+              JOptionPane.showMessageDialog(this,"Player has no cards to steal!","Invalid Move",JOptionPane.ERROR_MESSAGE);
+            }
+            else{
+              chosen=s;
+            }
+            
+          }
+        }
+        
+        //randomly steals a resource from the chosen player, and adds to the currentplayer
+        
+        int randomsteal = (int) Math.random() * chosen.getResources().size();
+        String resourcetaken = chosen.getResources().get(randomsteal);
+        chosen.changeResources(resourcetaken,-1);
+        currentplayer.changeResources(resourcetaken,1);
+        
+        
+        
+        
+      }
+    }
+    
+  }
+  
+  //********************************************************************************************
+  
+  
+  //This section has test that are used in MoveRobber
+  
+  
+  /*
+   * hasSettlementHere(Player a,int[] z) checks to see if player a has a settlement in the given nodes
+   * 
+   * @param Player a to check for
+   * 
+   * @param int[] z an array of nodes
+   * 
+   * @returns whether player a has a settlement in any of the list of nodes
+   * 
+   * **/
+  
+  
+  
+  public boolean hasSettlementHere(Player a,int[] z){
+    for (int x=0;x<6;x++){
+      if (a.getSettlementlist().contains(z[x])){
+        return true;
+      }
+    }
+    return false;
+    
+    
+    
+    
+  }
+  
+  /* checkifPossibletheft(ArrayList<Player> wheres, String waldo) checks if String waldo matches with a player's name
+   * in wheres
+   * 
+   * 
+   * @param a list of Players that can be stolen from
+   * 
+   * @waldo the inputted name of the player
+   * 
+   * **/
+  
+  public boolean checkifPossibletheft(ArrayList<Player> wheres,String waldo){
+    for (Player s: wheres){
+      if (s.getName().equals(waldo)){
+        return true;
+      }
+    }
+    return false;
+    
+    
+  }
+  
+  
+  /*allpoor(ArrayList<Player> k) checks to make sure that at least one of the players have resources
+   * 
+   * @param ArrayList<Player k> is a list of all the players that could have been stolen from
+   * 
+   * @returns whether or not no one in the list of Players have any resources
+   * 
+   * **/
+  
+  public boolean allpoor(ArrayList<Player> k){
+    for (int x=0; x<k.size();x++){
+      if (k.get(x).resourcelength()>0){
+        return false;
+      }
+      
+    }
+    return true;
+  }
+  
+  //**************************************************************************************************
+  //this section is one miscellaneous, because I have no sense of organization Q...
+  
+  /*dicerolldisplay() displays the number that is rolled when a dice is rolled
+   * 
+   * 
+   * @returns the number that the dice has just rolled
+   * **/
+  public int dicerolldisplay(){
+    //randomizes two dice
+    int diceone= (int) ((Math.random() *6)  +1);
+    int dicetwo= (int)((Math.random() *6) +1);
+    
+    
+    int diceresult= diceone +dicetwo;
+    
+    JOptionPane.showMessageDialog(this, Integer.toString(diceresult), "Number Rolled", JOptionPane.INFORMATION_MESSAGE);
+    
+    
+    return diceresult;
+    
+  }
+  
+  //*********************************************************************************************************
+  //this section covers the procedures that happen in settlers at the very beginning
+  
+  
+  /*start() compiles all the necessary start functions into one start()
+   * 
+   * **/
+  
+  public void start(){
+    
+    //creates new players to add to turnorder, the list of players
+    for (int x=1;x<5;x++){
+      //chooseName and chooseColor decide player colors
+      Player existent=new Player(chooseName(x),chooseColor(x));
+      turnorder.add(existent);
+    }
+    
+    //this portion randomizes the list of players, and decides turn order
+    long seed = System.nanoTime();
+    
+    Collections.shuffle(turnorder,new Random(seed));
+    
+    String playernameorder= "";
+    
+    for (Player c: turnorder){
+      playernameorder+=c.getName()+" ";
+      
+    }
+    
+    JOptionPane.showMessageDialog(this,"Player order will go: "+ playernameorder);
+    
+//startbuild then builds the start-off buildings for each player
+    
+    
+    startbuild();
+    
+  }
+  
+  /*
+   * chooseName(int z) returns a string that a player wants to call himself/herself
+   * 
+   * @param int z, integer z that Player z is called before naming himself/herself
+   * 
+   * @returns String name that player wants to call himself/herself
+   * **/
+  
+  
+  
+  public String chooseName(int z){
+    
+    String namechosen = JOptionPane.showInputDialog(this, "Player " + z +", choose your name");
+    
+    //makes sure the name isn't already chosen
+    for (Player robin : turnorder){
+      if (robin.getName().equals(namechosen)){
+        JOptionPane.showMessageDialog(this, "Name already chosen", "ERROR", JOptionPane.ERROR_MESSAGE);
+        return chooseName(z);
+      }
+      
+      
+    }
+    return namechosen;
+  }
+  
+  
+  /*
+   * chooseColor(int z) returns a color that the player wants to be
+   * 
+   * @param int z, integer z tht Player z is called before naming himself/herself
+   * 
+   * @returns Color, of options orange,cyan,white, and red, that the player wants to be
+   * **/
+  
+  public Color chooseColor(int z){
+    
+    String x= "";
+    for (String key: coloroptions.keySet()){
+      x+=key+" ";
+      
+    }
+    
+    String colorchosen = JOptionPane.showInputDialog(this,"("+ x +")"+" Player " + z +", choose your color");
+    
+    //removes the color once it is chosen
+    if (coloroptions.containsKey(colorchosen)){
+      Color chosen= coloroptions.get(colorchosen);
+      coloroptions.remove(colorchosen);
+      return chosen;
+    }
+    else{
+      //makes sure an input can be interpreted right
+      JOptionPane.showMessageDialog(this, "Can not interpret input", "ERROR", JOptionPane.ERROR_MESSAGE);
+      return chooseColor(z);
+      
+    }
+    
+  }
+  
+  
+  
+  /*
+   * startbuild() starts out the Settlers game, where each player starts to build 2 settlements and 2 roads
+   * 
+   * the convention is: first player builds, second player builds, third player builds, fourth player builds
+   *                    fourth player builds again, third player builds, second player builds, first player builds
+   * 
+   * during the second round, the players receive resources that correspond to the surrounding him/her due to the settlement built
+   * 
+   * startbuild() also includes an auto-build, for easier testing
+   * 
+   * **/
+  
+  public void startbuild(){
+    
+    
+    // if startsettlement(player a)== -1, this means this settlement has been auto-builded
+    
+    
+    //this for loop is the first round of building
+    for (int x=0; x<4; x++){
+      int trackfirst= startsettlement(turnorder.get(x));
+      
+      
+      if (trackfirst !=-1){
+        
+        startroad(turnorder.get(x),trackfirst);
+      }
+    }
+    
+    // this for loop is the second round of building, players receive resources during this building phase
+    for (int x=3;x>=0;x--){
+      int track=startsettlement(turnorder.get(x));
+      int resourcemaybe =randombuildchosen;
+      if (track != -1){
+        startroad(turnorder.get(x),track);
+        resourcemaybe=track;
+      }
+      //adds resources to players
+      
+      startresources(turnorder.get(x),resourcemaybe);
+      
+      
+      
+    }
+    
+  }
+  
+  
+  /*startsettlement(Player currentplayer) creates a settlements, but is at the very start
+   * 
+   * very similar to addSettlement(currentplayer). However, startsettlement has less restrictions,
+   * like no requirement for roadconnection
+   * 
+   * @param Player currentplayer that is creating the start settlement
+   * 
+   * **/
+  
+  public int startsettlement(Player currentplayer){
+    
+    numbersOn=true;
+    repaint();
+    boolean validnumber=false;
+    int nodeChosen=-1;
+    //looops thorugh node input until valid nodes
+    
+    while(!validnumber){
+      String nodeChosenString= JOptionPane.showInputDialog(this,currentplayer.getName()+", Input the node number you want to build your settlement on (\"auto\" for auto-build) ");
+      
+      if (nodeChosenString.equals("auto")){
+        autobuild(currentplayer);
+        
+        validnumber=true;
+        return -1;
+        
+      }
+      
+      else {
+        try{
+          nodeChosen= Integer.parseInt(nodeChosenString);
+          validnumber=true;
+        }
+        catch(NumberFormatException ex){}
+        
+        
+        
+        
+      }
+    }
+    //tests for validity
+    if (nodeChosen<0 || nodeChosen>53){
+      JOptionPane.showMessageDialog(this, "Not a valid settlement","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      return startsettlement( currentplayer);
+    }
+    else if ((getissettlement().get(nodeChosen))){
+      JOptionPane.showMessageDialog(this, "There is already a settlement or city here","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      return startsettlement(currentplayer);
+      
+    }
+    else if (tooclose(nodeChosen)){
+      JOptionPane.showMessageDialog(this, "You must be at least 2 roads away from every other settlement to build a settlement","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      return startsettlement(currentplayer);
+    }
+    
+    else{
+      //allows addition of settlement
+      getissettlement().put(nodeChosen,true);
+      getnodecolor().put(nodeChosen,currentplayer.getColor());
+      currentplayer.addplayerSettlement(nodeChosen);
+      numbersOn=false;
+      repaint();
+      //checks for ports unlocked
+      
+      for (int i=0; i<9;i++){
+        for (int u=0;u<nodeports.get(i).length;u++){
+          if (nodeChosen==nodeports.get(i)[u]){
+            currentplayer.addPort(ports.get(i));
+          }
+          
+        }
+      }
+      
+      return nodeChosen;
+    }
+    
+    
+  }
+  
+  
+  
+  
+  /*
+   * 
+   * startroad(Player currentplayer,int currentchosennode) creates a road for currentplayer, and
+   * makes sure that the road stems from the settlement that currentplayer has just built
+   * 
+   * @param Player currentplayer the player that is building the startoff road
+   * 
+   * @param int currentchosennode -the node that the player just selected to build a settlement on
+   * **/
+  
+  
+  
+  public void startroad(Player currentplayer,int currentchosennode){
+    
+    //creates the input road coordinate, and makes sure they are valid numbers
+    numbersOn=true;
+    boolean validnumber=false;
+    boolean validnumbertwo=false;
+    int roadstart=-1;
+    int roadfinish=-1;
+    repaint();
+    
+    
+    while(!validnumber){
+      String roadstartinput= JOptionPane.showInputDialog(this,currentplayer.getName()+", Input the node number you want to start your road on");
+      
+      try{
+        roadstart = Integer.valueOf(roadstartinput);
+        validnumber=true;
+      }
+      catch(NumberFormatException ex){}
+    }
+    
+    while(!validnumbertwo){
+      
+      String roadfinishinput= JOptionPane.showInputDialog(this,currentplayer.getName()+", Input the node number you want to finish your road on");
+      
+      try{
+        
+        roadfinish = Integer.valueOf(roadfinishinput);
+        validnumbertwo=true;
+      }
+      catch(NumberFormatException ex){}
+      
+    }
+    
+    //formats the roadcoordinate so the lower number is first
+    int[] roadcoordinate = new int[2];
+    if (roadstart<roadfinish){
+      roadcoordinate[0]=roadstart;
+      roadcoordinate[1]=roadfinish;
+    }
+    else{
+      roadcoordinate[0]=roadfinish;
+      roadcoordinate[1]=roadstart;
+    }
+    
+    //numerous tests to check for validity
+    
+    if (!(checkforRoadValidity(roadcoordinate))){
+      
+      
+      JOptionPane.showMessageDialog(this, "Not a valid road coordinate","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      startroad(currentplayer,currentchosennode);
+    }
+    //this makes sure that the road connects to the previously built settlement
+    else if (!(checkforsettlementconnection(roadcoordinate,currentchosennode))){
+      
+      JOptionPane.showMessageDialog(this, "Must connect to the settlement just built","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      startroad(currentplayer,currentchosennode);
+      
+    }
+    
+    //check to see if this road is not already taken
+    else if (checkforRoadTaken(roadcoordinate)){
+      JOptionPane.showMessageDialog(this, "This road is already taken","Illegal Move" , JOptionPane.ERROR_MESSAGE);
+      startroad(currentplayer,currentchosennode);
+    }
+    
+    //allows player to add road
+    else{
+      currentplayer.addplayerRoad(roadcoordinate);
+      for (int[] z: getroads()){
+        
+        if (z[0]==roadcoordinate[0] && z[1]==roadcoordinate[1]){
+          getroadmap().put(z,currentplayer.getColor());
+          repaint();
+          
+        }
+      }
+      
+    }
+    
+    numbersOn=false;
+    repaint();
+  }
+  
+  /* checkforsettlementconnection(int[] coordinate, int currentsettlement) checks to make sure int[] coordinate,
+   * a road, connects to int currentsettlement, a settlement node
+   * 
+   * @param int[] coordinate the hypothetical road just made
+   * 
+   * @param int currentsettlement the settlement the player just built
+   * 
+   * 
+   * @returns whether or not the road and the settlement connect to each other
+   * 
+   * **/
+  public boolean checkforsettlementconnection(int[] coordinate, int currentsettlement){
+    
+    for (int z: coordinate){
+      if (z==currentsettlement){
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  /*
+   * 
+   * startresources(Player currentplayer, int nodechosen) causes currentplayer to obtain resources from second round
+   * 
+   * 
+   * @param Player currentplayer that just built the second settlement
+   * 
+   * @param int nodechosen the integer of the node that the player just built a settlement on
+   * */
+  public void startresources(Player currentplayer, int nodechosen){
+    //returns the various hexagons that correspond nodechosen
+    int[] resourceobtained=noderesources.get(nodechosen);
+    //the list of resources
+    ArrayList<String> resourcestuff= new ArrayList<String>(3);
+    
+    for (int x=0;x<resourceobtained.length;x++){
+      //translate the hexagon to type of field
+      String lands =landlist.get(resourceobtained[x]);
+      //translates the type of field to the type of resource
+      String resource= landresourcematch.get(lands);
+      //adds the resources
+      currentplayer.changeResources(resource,1);
+      
+    }
+  }
+  
+  
+  
+  
+  
+  /*autobuild(Player currentplayer) autobuilds a player's staring settlement and road for him/her
+   * 
+   * This method is mainly in order to allow for faster testing
+   * 
+   * @param currentplayer, the player currently building
+   * 
+   * 
+   * **/
+  
+  
+  
+  public void autobuild(Player currentplayer){
+    
+    //randomizes a node to build the settlement on
+    int randomchosen= (int) Math.random() *54;
+    boolean wegotit=false;
+    boolean wegotsroad=false;
+    
+    //while loop keeps happening until a valid node number happens that satisfies Settlers' rules
+    
+    //**********************************************
+    //this section builds a random settlement that is valid
+    while(!wegotit){
+      //checks for existing settlement
+      if ((getissettlement().get(randomchosen))){
+        randomchosen=(int) (Math.random()*54);
+        
+        
+      }
+      
+      //checks for >=2 roads proximity
+      else if (tooclose(randomchosen)){
+        randomchosen=(int) (Math.random()*54);
+        
+      }
+      
+      else{
+        //otherwise, allows addition of road
+        getissettlement().put(randomchosen,true);
+        getnodecolor().put(randomchosen,currentplayer.getColor());
+        currentplayer.addplayerSettlement(randomchosen);
+        numbersOn=false;
+        repaint();
+        
+        //checks for any ports that are unlocked
+        
+        for (int i=0; i<9;i++){
+          for (int u=0;u<nodeports.get(i).length;u++){
+            if (randomchosen==nodeports.get(i)[u]){
+              currentplayer.addPort(ports.get(i));
+            }
+            
+          }
+        }
+        wegotit=true;
+        
+        
+        
+        
+        
+      }
+    }
+    //**********************************************
+    
+    //this section build a random road that is required to stem off from the settlement just built
+    
+    int[][] possroads= new int[3][2];
+    int count =0;
+    
+    
+    
+    //for loop determines all the possible roads that can stem from settlement just built
+    
+    for (int x=0; x<roads.size();x++){
+      for (int z=0;z<2;z++){
+        if (roads.get(x)[z]==randomchosen){
+          possroads[count]=roads.get(x);
+          count++;
+          
+        }
+      }
+      
+      
+    }
+    boolean validroad=false;
+    int randomroadint = (int) (Math.random() *3);
+    int[] roadcoordinate=possroads[randomroadint];
+    
+    
+    //creates a while loop that loops until valid road
+    while (!validroad){
+      if (roadcoordinate[0]==0 && roadcoordinate[1]==0){
+        if (randomroadint==2){
+          randomroadint=0;
+        }
+        else{
+          randomroadint+=1;
+        }
+        System.out.println(""+randomroadint);
+        System.out.println("["+roadcoordinate[0]+","+roadcoordinate[1]+"]");
+        roadcoordinate=possroads[randomroadint];
+      }
+      else{
+        roadcoordinate=possroads[randomroadint];
+        validroad=true;
+        
+      }
+    }
+    
+    //adds the road to player's roadlist, as well ast the roadmap
+    currentplayer.addplayerRoad(roadcoordinate);
+    getroadmap().put(roadcoordinate,currentplayer.getColor());
+    repaint();
+    
+    //made in order to make sure that auto-builded player building still gets resources
+    randombuildchosen=randomchosen;
+    
+  }
+  
+}
+
+
+
+
+
+
