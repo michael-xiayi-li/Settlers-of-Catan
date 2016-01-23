@@ -1,0 +1,192 @@
+import java.awt.*;
+import javax.swing.*;
+import java.util.*;
+
+//*************************************************Li15M SETTLERS OF CATAN FINAL PROJECT*******************************************************
+
+
+//This class represents the deck every player draws from or uses
+
+public class SettlersDecks extends GameBoard{
+  /*14 Soldiers
+   5 Victory Points
+   2 Monopoly
+   2 Road Building
+   2 Invention
+   */
+  
+  
+  
+  private ArrayList<String> devcards= new ArrayList<String>(25);
+  
+  //keeps track of how many of each resource available in the bank
+  private int woolcount=19;
+  private int woodcount=19;
+  private int wheatcount=19;
+  private int brickcount=17;
+  private int orecount=20;
+  
+  
+  /*
+   * shuffledeck() adds cards to the devcard deck and shuffles the devcard deck,
+   * so players can draw from it arbitrarily
+   * 
+   * **/
+  public void shuffledeck(){
+    for (int x =0;x<14;x++){
+      devcards.add("knight");
+    }
+    for (int x=0;x<5;x++){
+      devcards.add("victory point");
+    }
+    for (int x=0;x<2;x++){
+      devcards.add("monopoly");
+    }
+    for (int x=0;x<2;x++){
+      devcards.add("road building");
+    }
+    for (int x=0;x<2;x++){
+      devcards.add("invention");
+    }
+    
+    
+    long seed = System.nanoTime();
+    Collections.shuffle(devcards,new Random(seed));
+    
+  }
+  
+  //***********************************************************************************************************
+  
+  //this section handles draw methods
+  
+  //draw methods remove a card from the individual deck, and returns the card that has been removed,or
+  //whether the card has been removed or not
+  
+  
+  
+  public String drawDevcard(){
+    return devcards.remove(0);
+  }
+  
+  
+  public boolean drawWool(){
+    if (woolcount>0){
+      woolcount--;
+      return true;
+    }
+    return false;
+  }
+  
+  public boolean drawWood(){
+    if (woodcount>0){
+      woodcount--;
+      return true;
+    }
+    return false;
+  }
+  public boolean drawWheat(){
+    if (wheatcount>0){
+      wheatcount--;
+      return true;
+    }
+    return false;
+  }
+  public boolean drawBrick(){
+    if (brickcount>0){
+      brickcount--;
+      return true;
+    }
+    return false;
+  }
+  public boolean drawOre(){
+    if (orecount>0){
+      orecount--;
+      return true;
+    }
+    return false;
+  }
+  
+  //**************************************************************************************
+  //this section handles changers, and alters the deck by the resource and amount implied by n
+  
+  public void changeWool(int n){
+    woolcount+=n;
+  }
+  
+  public void changeWood(int n){
+    woodcount+=n;
+  }
+  public void changeWheat(int n){
+    wheatcount+=n;
+  }
+  public void changeBrick(int n){
+    brickcount+=n;
+  }
+  public void changeOre(int n){
+    orecount+=n;
+  }
+  
+  //*******************************************************************************************************
+  
+  /*changedeck(String resource, int change)  changes the deck in regards to String resource, by n amount
+   * 
+   * 
+   * @param String resource the resource that is altered in this deck
+   * 
+   * @param int change by how much String resource is changed
+   * 
+   * 
+   * 
+   * **/
+  
+  public void changedeck(String resource, int change){
+    Map<String,Integer> deckmatch= new HashMap<String,Integer>(5);
+    
+    deckmatch.put("wool",woolcount);
+    deckmatch.put("wood",woodcount);
+    deckmatch.put("wheat",wheatcount);
+    deckmatch.put("brick",brickcount);
+    deckmatch.put("ore",orecount);
+    
+    int resourcealtered= deckmatch.get(resource);
+    resourcealtered+=change;
+  }
+  
+  /*changedeck(ArrayList<String> resource, int[] change) changes th deck in regards to ArrayList<String> resource
+   *  by int[] change in corresponding amounts
+   * 
+   * 
+   * @param ArrayList<String> resource gives a list of resources that need to be changed
+   * 
+   * @param int[] gives corresponding amount of ArrayList<String> resource that need to be changed
+   * 
+   * **/
+  
+  public void changedeck(ArrayList<String> resource, int[] change){
+    Map<String,Integer> deckmatch= new HashMap<String,Integer>(5);
+    
+    deckmatch.put("wool",woolcount);
+    deckmatch.put("wood",woodcount);
+    deckmatch.put("wheat",wheatcount);
+    deckmatch.put("brick",brickcount);
+    deckmatch.put("ore",orecount);
+    
+    
+    for (int x=0; x<resource.size();x++){
+      int resourcealtered=deckmatch.get(resource.get(x));
+      resourcealtered+=change[x];
+      
+    }
+    
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+}
